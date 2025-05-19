@@ -1,0 +1,88 @@
+---
+title: "Compact Letter Displays"
+author: "Clay Ford"
+date: 2024-03-13
+format:
+  html:
+    embed-resources: true
+---
+
+In Compact Letter Displays (CLD), groups that do not differ significantly from each other share the same letter, while groups that do show significant differences will have different letters.
+
+Demonstrate using "pigs" data included with {emmeans} package.
+
+- source: Source of protein in the diet (factor with 3 levels: fish meal, soybean meal, milk)
+- percent: Protein percentage in the diet (numeric with 4 values: 9, 12, 15, and 18)
+- conc: Concentration of free plasma leucine, in mcg/ml
+
+```{r message=FALSE}
+library(emmeans)
+library(ggplot2)
+library(multcomp)
+data(pigs)
+pigs$percent <- factor(pigs$percent)
+```
+
+Looks like most of the variability in conc is due to source, but percent contributes as well.
+
+```{r}
+plot.design(pigs)
+```
+
+Fit a 2-way ANOVA with no interaction. 
+
+```{r}
+pigs.lm <- lm(conc ~ source + percent, data = pigs)
+car::Anova(pigs.lm)
+```
+
+Now use {emmeans} to estimate marginal means. 
+
+```{r}
+pigs.emm <- emmeans(pigs.lm, c("percent", "source"))
+pigs.emm
+```
+
+Now generate compact letter displays using the `cld()` function from the {multcomp} package. The {emmeans} package provides a method for running this function on {emmeans} objects. This replicates the `emmeans()` output above with an extra columns for the letters.
+
+```{r}
+multcomp::cld(pigs.emm, Letters = LETTERS)
+```
+
+I like the note: 
+
+> NOTE: If two or more means share the same grouping symbol,
+      then we cannot show them to be different.
+      But we also did not show them to be the same.
+
+Save as a data frame so we can create the CLD plot.
+
+```{r}
+cld_df <- multcomp::cld(pigs.emm, Letters = LETTERS)
+names(cld_df)
+```
+
+Now create the plot. Use `show.legend = F` in `geom_text()` to suppress a letter from appearing in the legend.
+
+```{r}
+ggplot(cld_df) +
+  aes(x = percent, y = emmean, color = source) +
+  geom_point(position = position_dodge(width = 0.9)) +
+  geom_errorbar(mapping = aes(ymin = lower.CL, ymax = upper.CL), 
+                              position = position_dodge(width = 0.9),
+                width = 0.1) +
+  geom_text(mapping = aes(label = .group, y = upper.CL * 1.05), 
+            position = position_dodge(width = 0.9), 
+            show.legend = F)
+```
+
+Recall: groups that do not differ significantly from each other share the same letter, while groups that do show significant differences will have different letters. For example, fish at 9 percent appears to be different from soy and skim at 9 percent.
+
+See [this page](https://schmidtpaul.github.io/dsfair_quarto//ch/summaryarticles/compactletterdisplay.html) for R code to create fancier CLD plots and some interesting critiques of CLD. For example, the developer of the {emmeans} package [is on record](https://stats.stackexchange.com/a/508092/46334) saying, "Providing for CLDs _at all_ remains one of my biggest regrets in developing this package." [In another Stack Overflow answer](https://stackoverflow.com/a/70856238/2765195) he states, "IMO, almost anything is better than a CLD. They display non-findings rather than findings."
+
+He instead suggests presenting simple comparisons in tabular form, like so:
+
+```{r}
+pairs(pigs.emm, by = "source")
+pairs(pigs.emm, by = "percent")
+```

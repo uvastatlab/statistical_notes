@@ -1,0 +1,75 @@
+---
+title: "Consultation summary 2023-08-28"
+author: "Clay Ford"
+format:
+   html:
+      embed-resources: true
+---
+
+## task 1: drop any groups with less than 10 rows
+
+```{r}
+# make fake data; notice group 4 has only 8 rows
+grp <- c(rep(0:3, each = 10), rep(4,8), rep(5:6, each = 10))
+y <- round(rnorm(length(grp)),2)
+d <- data.frame(y, grp)
+```
+
+Want to drop group 4 since it only has 8 rows instead of 10
+
+```{r}
+table(d$grp)
+```
+
+Here's how I did it.
+
+```{r}
+# calculate table
+tab <- table(d$grp)
+# save names of table with entries not equal to 10
+drop <- names(tab)[tab != 10]
+# subset data frame where grp is not in drop
+d2 <- subset(d, !(grp %in% drop))
+# group 4 is dropped
+table(d2$grp)
+```
+
+
+## task 2: drop rows with runs of zeroes greater than or equal to 5
+
+```{r}
+# make fake data with lots of zeroes
+set.seed(666)
+y <- sample(0:4, size = 1000, replace = TRUE, prob = c(16,1,1,1,1)/20)
+d <- data.frame(y)
+head(d, n = 20)
+```
+
+Notice we start off with a run of 2 zeroes, then 1 one, then 3 zeroes, then 1 one, then 8 zeroes, ... 
+
+We can use the `rle()` function to calculate runs.
+
+```{r}
+r_out <- rle(d$y)
+r_out
+```
+
+`lengths` measures the runs of the `values`:
+
+Notice we start off with a run of 2 zeroes, then 1 one, then 3 zeroes, then 1 one, then 8 zeroes, ... 
+
+Again, the task is to drop rows where the run of zeroes is 5 or more. Here's how I did it. Add the lengths to the data frame, repeating by length so each row will be identified by its run group.
+
+```{r}
+d$cnt <- rep(r_out$lengths, r_out$lengths)
+head(d, n = 20)
+```
+
+Now we can subset the data frame on the condition that `cnt < 5`.
+
+```{r}
+d2 <- subset(d, cnt < 5)
+r_out2 <- rle(d2$y)
+any(r_out2$lengths >= 5)
+```
+

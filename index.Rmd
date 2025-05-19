@@ -1,0 +1,17 @@
+---
+title: "UVA StatLab Statistical Notes"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+###  Reports generated for various consultations for the UVA StatLab.
+
+- [Compact Letter Displays](cld.html) (Clay Ford, 2024-03-24)    
+How to create and interpret Compact Letter Displays, though [some people don't like them](https://stats.stackexchange.com/questions/275832/interpreting-compact-letter-displays-and-tukey-multiple-comparisons-from-glmm#comment829280_275832).
+
+- [Data wrangling consultation](consultation_summary_2023-08-28.html) (Clay Ford, 2023-08-28)     
+Data wrangling tasks: (1) drop any groups with less than 10 rows, (2) drop rows with runs of zeroes greater than or equal to 5.
+
