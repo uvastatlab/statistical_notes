@@ -1,0 +1,229 @@
+---
+title: "Investigating Multicolinearity"
+author: "Clay Ford"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Three collinear predictors, all in model
+
+Simulate data with multicollinearity. Below correlation is set to 0.95. Coefficients arbitrarily set to 0.5, -0.5, and 0.9.
+
+```{r}
+library(MASS)
+set.seed(10)
+r <- 0.95
+n <- 300
+d <- as.data.frame(mvrnorm(n = n, mu = c(0,0,0), 
+             Sigma = matrix(c(1,r,r, 
+                              r,1,r,
+                              r,r,1), byrow = T, nrow = 3)))
+d$Y <- 0.2 + 0.5*d$V1 + -0.5*d$V2 + 0.9*d$V3 +
+  rnorm(n = n, sd = 0.3)
+```
+
+Confirm predictors are highly correlated.
+
+```{r}
+pairs(d)
+cor(d)
+```
+
+Now fit a model. This is the "true" model. Estimated coefficients and standard errors look fine.
+
+```{r}
+m <- lm(Y ~ ., data = d)
+summary(m)
+```
+
+VIF are large, but does it matter?
+
+```{r}
+car::vif(m)
+```
+
+Even with correlation of 0.99 we get reasonable results.
+
+```{r}
+set.seed(20)
+r <- 0.99
+d <- as.data.frame(mvrnorm(n = n, mu = c(0,0,0), 
+             Sigma = matrix(c(1,r,r, 
+                              r,1,r,
+                              r,r,1), byrow = T, nrow = 3)))
+d$Y <- 0.2 + 0.5*d$V1 + -0.5*d$V2 + 0.9*d$V3 +
+  rnorm(n = n, sd = 0.3)
+m <- lm(Y ~ ., data = d)
+summary(m)
+```
+
+VIF are really high, but we fit the right model and we're getting reasonable estimates.
+
+```{r}
+car::vif(m)
+```
+
+Replicate 1000 times with correlation of 0.99. Extract coefficients and their standard errors. Summarize distributions.
+
+```{r}
+r <- 0.99
+rout <- replicate(n = 1000, expr = {
+                  d <- as.data.frame(mvrnorm(n = n, mu = c(0,0,0), 
+                                             Sigma = matrix(c(1,r,r,
+                                                              r,1,r,
+                                                              r,r,1), 
+                                                            byrow = T, 
+                                                            nrow = 3)))
+                  d$Y <- 0.2 + 0.5*d$V1 + -0.5*d$V2 + 0.9*d$V3 +
+                    rnorm(n = n, sd = 0.3)
+                  m <- lm(Y ~ ., data = d)
+                  c(coef(m)[-1], coef(summary(m))[-1,2])})
+rownames(rout) <- c("V1", "V2", "V3", "V1_SE", "V2_SE", "V3_SE")
+apply(rout, 1, summary)
+```
+
+All coefficients and standard errors are consistently estimated.
+
+## Three collinear predictors, only one in model
+
+Now generate three collinear variables, but only use one to generate the outcome.
+
+```{r}
+set.seed(30)
+r <- 0.99
+d <- as.data.frame(mvrnorm(n = n, mu = c(0,0,0), 
+             Sigma = matrix(c(1,r,r, 
+                              r,1,r,
+                              r,r,1), byrow = T, nrow = 3)))
+d$Y <- 0.2 + 0.5*d$V1 + rnorm(n = n, sd = 0.3)
+```
+
+Now fit model using all three predictors. V2 and V3 are highly collinear with V1.
+
+```{r}
+m <- lm(Y ~ ., data = d)
+summary(m)
+```
+
+Seems ok. Neither V2 or V3 are significant. The V1 coefficient estimate is within two standard errors of the true value, 0.5.
+
+Replicate 1000 times. This time pull out p-values instead of standard errors
+
+```{r}
+r <- 0.99
+rout <- replicate(n = 1000, expr = {
+                  d <- as.data.frame(mvrnorm(n = n, mu = c(0,0,0), 
+                                             Sigma = matrix(c(1,r,r,
+                                                              r,1,r,
+                                                              r,r,1), 
+                                                            byrow = T, 
+                                                            nrow = 3)))
+                  d$Y <- 0.2 + 0.5*d$V1 + rnorm(n = n, sd = 0.3)
+                  m <- lm(Y ~ ., data = d)
+                  c(coef(m)[-1], coef(summary(m))[-1,4])})
+rownames(rout) <- c("V1", "V2", "V3", "V1_p", "V2_p", "V3_p")
+```
+
+Check proportion of times coefficients declared significant at 5% level. V1 (the only predictor used to generate Y) is significant about 95% of the time. V2 and V3, on the other hand, are around 5%, suggesting the p-values are uniformly distributed because V2 and V3 are not associated with Y.
+
+```{r}
+apply(rout[4:6,], 1, function(x)mean(x < 0.05))
+```
+
+Check distribution of p-values.
+
+```{r}
+hist(rout[5,], main = "V2 p-values")
+hist(rout[6,], main = "V3 p-values")
+```
+
+## One predictor is predicted well from other predictors
+
+Example from _Applied Linear Statistical Models_ (Kutner et al. 2005). Predict body fat from tricep skinfold thickness, thigh circumference, and midarm circumference.
+
+```{r}
+bf <- read.table('CH07TA01.txt')
+names(bf) <- c("triceps", "thigh", "midarm", "body_fat")
+```
+
+One high pairwise correlation, but rest look ok.
+
+```{r}
+cor(bf[,1:3])
+```
+
+The pairs plots looks ok.
+
+```{r}
+pairs(bf[,1:3])
+```
+
+Fit a series of models and compare coefficients:
+
+```{r}
+m1 <- lm(body_fat ~ triceps, data = bf)
+m2 <- lm(body_fat ~ thigh, data = bf)
+m3 <- lm(body_fat ~ triceps + thigh, data = bf)
+m4 <- lm(body_fat ~ triceps + thigh + midarm, data = bf)
+car::compareCoefs(m1, m2, m3, m4, se = FALSE)
+```
+
+Notice how the coefficients for triceps and thigh change depending on what other variables are in the model.
+
+- Triceps is 0.857 by itself, 0.222 with thigh, and jumps to 4.3 with both thigh and midarm.
+- Thigh is 0.857 by itself, 0.659 with triceps, and falls to -2.857 with both tricep and midarm! (note the change in sign)
+
+Look at variance inflation factors for final model. They're huge!
+
+```{r}
+car::vif(m4)
+```
+
+Should we drop a variable? The textbook does not say. VIF simply alerts us to a multicollinearity problem.
+
+The authors instead present ridge regression as a remedial measure. I implement below without comment using the {glmnet} package.
+
+```{r message=FALSE, warning=FALSE}
+library(glmnet)
+cvfit <- cv.glmnet(x = as.matrix(bf[,1:3]), 
+                   y = as.matrix(bf[,4]), 
+                   alpha = 0)  # alpha = 0 means ridge regression
+coef(cvfit, s = "lambda.min")
+```
+
+Compare these coefficients to model 4 above. Big difference. However ridge regression coefficients have no standard errors, and thus no test statistics or p-values. 
+
+Why was VIF so big? Turns out midarm is highly correlated with tricep and thigh together. In other words, it's _conditional association_ that is the problem. To investigate, regress midarm on tricep and thigh.
+
+```{r}
+mod <- lm(midarm ~ thigh + triceps, data = bf)
+summary(mod)
+```
+
+Look at the R squared: 0.9904. It turns out that midarm can be almost perfectly predicted by thigh and triceps. 
+
+```{r}
+plot(bf$midarm, mod$fitted.values)
+```
+
+Look again at the correlations of midarm with tripceps and thigh: 0.45 and 0.08.
+
+```{r}
+cor(bf[,1:3])
+```
+
+Clearly simply looking pairwise correlations would not have detected this.
+
+## Statistical Rethinking excerpt
+
+Richard McElreath has this to say in Chapter 6 of his book Statistical Rethinking:
+
+"In the scientific literature, you might encounter a variety of dodgy ways of coping with multicollinearity. Few of them take a causal perspective. Some fields actually teach students to inspect pairwise correlations before fitting a model, to identify and drop highly correlated predictors. This is a mistake. Pairwise correlations are not the problem. It is the conditional associations — not correlations — that matter. And even then, the right thing to do will depend upon what is causing the collinearity. The associations within the data alone are not enough to decide what to do."
+

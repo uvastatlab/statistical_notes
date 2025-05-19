@@ -9,9 +9,11 @@
 <meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
 
 
+<meta name="author" content="Clay Ford" />
 
+<meta name="date" content="2025-01-10" />
 
-<title>UVA StatLab Statistical Notes</title>
+<title>Understanding the {ggeffects} predict_response() margin argument</title>
 
 <script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
 // be compatible with the behavior of Pandoc < 2.8).
@@ -348,47 +350,190 @@ display: none;
 
 
 
-<h1 class="title toc-ignore">UVA StatLab Statistical Notes</h1>
+<h1 class="title toc-ignore">Understanding the {ggeffects}
+<code>predict_response()</code> <code>margin</code> argument</h1>
+<h4 class="author">Clay Ford</h4>
+<h4 class="date">2025-01-10</h4>
 
 </div>
 
 
-<div id="reports-generated-for-various-consultations-for-the-uva-statlab." class="section level3">
-<h3>Reports generated for various consultations for the UVA
-StatLab.</h3>
-<ul>
-<li><p><a href="extract_data_upset_plot.html">Extracting data from UpSet
-Plot</a> (Clay Ford, 2025-04-10)<br />
-How to extract specific interactions from a data frame identified in an
-UpSet plot.</p></li>
-<li><p><a href="investigating_multicollinearity.html">Investigating
-Multicolinearity</a> (Clay Ford, 2025-03-19)<br />
-Investigating multicolinearity and challenging idea of inspecting
-pairwise correlations before fitting a model and dropping highly
-correlated predictors.</p></li>
-<li><p><a href="ggeffects_margin_argument.html">Understanding the
-{ggeffects} predict_response() margin argument</a> (Clay Ford,
-2025-01-10)<br />
-Elaborating on the {ggeffects} vignette, <a href="https://strengejacke.github.io/ggeffects/articles/technical_differencepredictemmeans.html">Difference
-Between Marginalization Methods: The margin Argument</a>.</p></li>
-<li><p><a href="cld.html">Compact Letter Displays</a> (Clay Ford,
-2024-03-24)<br />
-How to create and interpret Compact Letter Displays, though <a href="https://stats.stackexchange.com/questions/275832/interpreting-compact-letter-displays-and-tukey-multiple-comparisons-from-glmm#comment829280_275832">some
-people don’t like them</a>.</p></li>
-<li><p><a href="forced_oneway_anova.html">Forced One-way ANOVA</a>(Clay
-Ford, 2023-12-01)<br />
-Convert a two-way ANOVA into a one-way ANOVA.</p></li>
-<li><p><a href="consultation_summary_2023-08-28.html">Data wrangling
-consultation</a> (Clay Ford, 2023-08-28)<br />
-Data wrangling tasks: (1) drop any groups with less than 10 rows, (2)
-drop rows with runs of zeroes greater than or equal to 5.</p></li>
-<li><p><a href="glmm.html">Demo of Generalized Linear Mixed Model</a>
-(Clay Ford, 2021-02-12)<br />
-A demonstration of binomial GLMM using simulated data.</p></li>
-<li><p><a href="cramers_v.html">CIs for Cramer’s V</a> (Clay Ford,
-2021-01-20)<br />
-Demo of calculating CIs for Cramer’s V for a small sample.</p></li>
-</ul>
+<p>Elaborating on the {ggeffects} vignette, <a href="https://strengejacke.github.io/ggeffects/articles/technical_differencepredictemmeans.html">Difference
+Between Marginalization Methods: The <code>margin</code>
+Argument</a>.</p>
+<p>Fit a model for examples using one factor and one numeric
+predictor.</p>
+<pre class="r"><code>library(ggeffects)
+data(mtcars)
+mtcars$cyl &lt;- factor(mtcars$cyl)
+m &lt;- lm(mpg ~ wt + cyl, data = mtcars)</code></pre>
+<p>Notice the reference level is “4”.</p>
+<pre class="r"><code>levels(mtcars$cyl)</code></pre>
+<pre><code>[1] &quot;4&quot; &quot;6&quot; &quot;8&quot;</code></pre>
+<p>Notice the most frequently occurring level is “8”.</p>
+<pre class="r"><code>table(mtcars$cyl)</code></pre>
+<pre><code>
+ 4  6  8 
+11  7 14 </code></pre>
+<div id="mean_reference" class="section level2">
+<h2>“mean_reference”</h2>
+<p>This is the default. Predictions are made holding the non-focal
+predictor, in this case the factor “cyl”, at its reference level.</p>
+<pre class="r"><code>predict_response(m, terms = &quot;wt [2.5, 3, 3.5]&quot;, margin = &quot;mean_reference&quot;)</code></pre>
+<pre><code># Predicted values of mpg
+
+  wt | Predicted |       95% CI
+-------------------------------
+2.50 |     25.98 | 24.36, 27.59
+3.00 |     24.37 | 22.45, 26.30
+3.50 |     22.77 | 20.32, 25.22
+
+Adjusted for:
+* cyl = 4</code></pre>
+<p>Here are the predictor values used to predict the response. The
+<code>data_grid()</code> function is in the {ggeffects} package.</p>
+<pre class="r"><code>new_mean &lt;- data_grid(m, terms = &quot;wt [2.5, 3, 3.5]&quot;, typical = &quot;mean&quot;)
+new_mean</code></pre>
+<pre><code>   wt cyl
+1 2.5   4
+2 3.0   4
+3 3.5   4</code></pre>
+<p>Replicate the result of <code>predict_response()</code> using the
+base R <code>predict()</code> function:</p>
+<pre class="r"><code>p &lt;- predict(m, newdata = new_mean) |&gt; 
+  round(2)
+cbind(wt = c(2.5, 3, 3.5), pred = p)</code></pre>
+<pre><code>   wt  pred
+1 2.5 25.98
+2 3.0 24.37
+3 3.5 22.77</code></pre>
+</div>
+<div id="mean_mode" class="section level2">
+<h2>“mean_mode”</h2>
+<p>Predictions are made holding the non-focal predictor, in this case
+the factor “cyl”, at its mode.</p>
+<pre class="r"><code>predict_response(m, terms = &quot;wt [2.5, 3, 3.5]&quot;, margin = &quot;mean_mode&quot;)</code></pre>
+<pre><code># Predicted values of mpg
+
+  wt | Predicted |       95% CI
+-------------------------------
+2.50 |     19.91 | 17.20, 22.61
+3.00 |     18.30 | 16.22, 20.39
+3.50 |     16.70 | 15.10, 18.30
+
+Adjusted for:
+* cyl = 8</code></pre>
+<p>Here are the predictor values used to predict the response. Notice we
+set <code>typical = &quot;mode&quot;</code>.</p>
+<pre class="r"><code>new_mode &lt;- data_grid(m, terms = &quot;wt [2.5, 3, 3.5]&quot;, typical = &quot;mode&quot;)
+new_mode</code></pre>
+<pre><code>   wt cyl
+1 2.5   8
+2 3.0   8
+3 3.5   8</code></pre>
+<p>Replicate the result of <code>predict_response()</code> using the
+base R <code>predict()</code> function:</p>
+<pre class="r"><code>p &lt;- predict(m, newdata = new_mode) |&gt; 
+  round(2)
+cbind(wt = c(2.5, 3, 3.5), pred = p)</code></pre>
+<pre><code>   wt  pred
+1 2.5 19.91
+2 3.0 18.30
+3 3.5 16.70</code></pre>
+</div>
+<div id="marginalmeans" class="section level2">
+<h2>“marginalmeans”</h2>
+<p>Predictions are made at <em>all combinations</em> of the variables,
+both focal and non-focal, and then the predictions are averaged by the
+levels of the focal predictor.</p>
+<pre class="r"><code>predict_response(m, terms = &quot;wt [2.5, 3, 3.5]&quot;, margin = &quot;marginalmeans&quot;)</code></pre>
+<pre><code># Predicted values of mpg
+
+  wt | Predicted |       95% CI
+-------------------------------
+2.50 |     22.53 | 21.16, 23.91
+3.00 |     20.93 | 19.95, 21.92
+3.50 |     19.33 | 18.21, 20.45</code></pre>
+<p>To get predictor values, we can use <code>expand.grid()</code> to get
+all combinations.</p>
+<pre class="r"><code>new_marginalmeans &lt;- expand.grid(wt = c(2.5, 3, 3.5), 
+                                 cyl = factor(c(4,6,8)))
+new_marginalmeans</code></pre>
+<pre><code>   wt cyl
+1 2.5   4
+2 3.0   4
+3 3.5   4
+4 2.5   6
+5 3.0   6
+6 3.5   6
+7 2.5   8
+8 3.0   8
+9 3.5   8</code></pre>
+<p>A prediction is made at each combination of predictor variables.</p>
+<pre class="r"><code>new_marginalmeans$pred &lt;- predict(m, newdata = new_marginalmeans)
+new_marginalmeans</code></pre>
+<pre><code>   wt cyl     pred
+1 2.5   4 25.97676
+2 3.0   4 24.37395
+3 3.5   4 22.77115
+4 2.5   6 21.72118
+5 3.0   6 20.11837
+6 3.5   6 18.51557
+7 2.5   8 19.90590
+8 3.0   8 18.30309
+9 3.5   8 16.70029</code></pre>
+<p>Then we calculate the mean prediction by “wt” level to get the
+predicted values returned by {ggeffects}.</p>
+<pre class="r"><code>aggregate(pred ~ wt, data = new_marginalmeans, mean) |&gt; 
+  round(2)</code></pre>
+<pre><code>   wt  pred
+1 2.5 22.53
+2 3.0 20.93
+3 3.5 19.33</code></pre>
+</div>
+<div id="empirical-or-counterfactual" class="section level2">
+<h2>“empirical” (or “counterfactual”)</h2>
+<p>Predictions are made at <em>each observation</em> of the original
+data using the observed non-focal predictor and a level of the focal
+predictor. This is repeated for each level of the focal predictor. And
+then the predictions are averaged at each level of the focal
+predictor.</p>
+<p>In this example, that means setting all 32 cars in the mtcars data
+frame to have wt = 2.5 and then calculating the predicted mpg for each
+car. Repeat this process again setting wt = 3, and then again setting wt
+= 3.5. When done, take the average of the predictions at each level of
+wt. This is what happens when we set
+<code>margin = &quot;empirical&quot;</code>.</p>
+<pre class="r"><code>predict_response(m, terms = &quot;wt [2.5, 3, 3.5]&quot;, margin = &quot;empirical&quot;)</code></pre>
+<pre><code># Average predicted values of mpg
+
+  wt | Predicted |       95% CI
+-------------------------------
+2.50 |     22.39 | 20.95, 23.83
+3.00 |     20.79 | 19.80, 21.77
+3.50 |     19.18 | 18.16, 20.21</code></pre>
+<p>To replicate the calculation, we need to first replicate the data
+frame once for each value of the focal predictor. Below I only keep the
+“cyl” column since that’s all we need. We add the “wt” variable in the
+next code chunk.</p>
+<pre class="r"><code>new_emprical &lt;- do.call(rbind, replicate(3, mtcars[,&quot;cyl&quot;, drop = F], 
+                                         simplify = FALSE))</code></pre>
+<p>Now add the “wt” variable. Add one level to each replicate of the
+data. Notice we have 96 rows, which is three times the size of the
+original dataset which has 32 rows.</p>
+<pre class="r"><code>new_emprical$wt &lt;- rep(c(2.5, 3, 3.5), each = nrow(mtcars))
+nrow(new_emprical)</code></pre>
+<pre><code>[1] 96</code></pre>
+<p>Now make predictions for each row, 96 in all.</p>
+<pre class="r"><code>new_emprical$pred &lt;- predict(m, newdata = new_emprical)</code></pre>
+<p>Finally, calculate the mean prediction by “wt” level to get the
+predicted values returned by {ggeffects}.</p>
+<pre class="r"><code>aggregate(pred ~ wt, data = new_emprical, mean) |&gt; 
+  round(2)</code></pre>
+<pre><code>   wt  pred
+1 2.5 22.39
+2 3.0 20.79
+3 3.5 19.18</code></pre>
 </div>
 
 

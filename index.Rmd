@@ -9,9 +9,28 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ###  Reports generated for various consultations for the UVA StatLab.
 
+- [Extracting data from UpSet Plot](extract_data_upset_plot.html) (Clay Ford, 2025-04-10)     
+How to extract specific interactions from a data frame identified in an UpSet plot.
+
+- [Investigating Multicolinearity](investigating_multicollinearity.html) (Clay Ford, 2025-03-19)   
+Investigating multicolinearity and challenging idea of inspecting pairwise correlations before fitting a model and dropping highly correlated predictors.
+
+- [Understanding the {ggeffects} predict_response() margin argument](ggeffects_margin_argument.html) (Clay Ford, 2025-01-10)    
+Elaborating on the {ggeffects} vignette, [Difference Between Marginalization Methods: The margin Argument](https://strengejacke.github.io/ggeffects/articles/technical_differencepredictemmeans.html).
+
 - [Compact Letter Displays](cld.html) (Clay Ford, 2024-03-24)    
 How to create and interpret Compact Letter Displays, though [some people don't like them](https://stats.stackexchange.com/questions/275832/interpreting-compact-letter-displays-and-tukey-multiple-comparisons-from-glmm#comment829280_275832).
 
+- [Forced One-way ANOVA](forced_oneway_anova.html)(Clay Ford, 2023-12-01)    
+Convert a two-way ANOVA into a one-way ANOVA.
+
 - [Data wrangling consultation](consultation_summary_2023-08-28.html) (Clay Ford, 2023-08-28)     
 Data wrangling tasks: (1) drop any groups with less than 10 rows, (2) drop rows with runs of zeroes greater than or equal to 5.
+
+- [Demo of Generalized Linear Mixed Model](glmm.html) (Clay Ford, 2021-02-12)    
+A demonstration of binomial GLMM using simulated data.
+
+- [CIs for Cramer's V](cramers_v.html) (Clay Ford, 2021-01-20)    
+Demo of calculating CIs for Cramer's V for a small sample.
+
 

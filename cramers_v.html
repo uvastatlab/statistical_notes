@@ -9,9 +9,10 @@
 <meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
 
 
+<meta name="author" content="Clay Ford" />
 
 
-<title>UVA StatLab Statistical Notes</title>
+<title>Cramer’s V</title>
 
 <script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
 // be compatible with the behavior of Pandoc < 2.8).
@@ -348,48 +349,67 @@ display: none;
 
 
 
-<h1 class="title toc-ignore">UVA StatLab Statistical Notes</h1>
+<h1 class="title toc-ignore">Cramer’s V</h1>
+<h4 class="author">Clay Ford</h4>
+<h4 class="date">1/20/2021</h4>
 
 </div>
 
 
-<div id="reports-generated-for-various-consultations-for-the-uva-statlab." class="section level3">
-<h3>Reports generated for various consultations for the UVA
-StatLab.</h3>
-<ul>
-<li><p><a href="extract_data_upset_plot.html">Extracting data from UpSet
-Plot</a> (Clay Ford, 2025-04-10)<br />
-How to extract specific interactions from a data frame identified in an
-UpSet plot.</p></li>
-<li><p><a href="investigating_multicollinearity.html">Investigating
-Multicolinearity</a> (Clay Ford, 2025-03-19)<br />
-Investigating multicolinearity and challenging idea of inspecting
-pairwise correlations before fitting a model and dropping highly
-correlated predictors.</p></li>
-<li><p><a href="ggeffects_margin_argument.html">Understanding the
-{ggeffects} predict_response() margin argument</a> (Clay Ford,
-2025-01-10)<br />
-Elaborating on the {ggeffects} vignette, <a href="https://strengejacke.github.io/ggeffects/articles/technical_differencepredictemmeans.html">Difference
-Between Marginalization Methods: The margin Argument</a>.</p></li>
-<li><p><a href="cld.html">Compact Letter Displays</a> (Clay Ford,
-2024-03-24)<br />
-How to create and interpret Compact Letter Displays, though <a href="https://stats.stackexchange.com/questions/275832/interpreting-compact-letter-displays-and-tukey-multiple-comparisons-from-glmm#comment829280_275832">some
-people don’t like them</a>.</p></li>
-<li><p><a href="forced_oneway_anova.html">Forced One-way ANOVA</a>(Clay
-Ford, 2023-12-01)<br />
-Convert a two-way ANOVA into a one-way ANOVA.</p></li>
-<li><p><a href="consultation_summary_2023-08-28.html">Data wrangling
-consultation</a> (Clay Ford, 2023-08-28)<br />
-Data wrangling tasks: (1) drop any groups with less than 10 rows, (2)
-drop rows with runs of zeroes greater than or equal to 5.</p></li>
-<li><p><a href="glmm.html">Demo of Generalized Linear Mixed Model</a>
-(Clay Ford, 2021-02-12)<br />
-A demonstration of binomial GLMM using simulated data.</p></li>
-<li><p><a href="cramers_v.html">CIs for Cramer’s V</a> (Clay Ford,
-2021-01-20)<br />
-Demo of calculating CIs for Cramer’s V for a small sample.</p></li>
-</ul>
-</div>
+<p>Cramer’s V returns the same measure of association regardless of
+ordering of labels, where 1 is perfect association. Using Jennie’s
+example, notice both equal 0:</p>
+<pre class="r"><code>library(DescTools) # for CramerV() function
+X &lt;- c(rep(&quot;A&quot;, 3), rep(&quot;B&quot;, 3))
+Y &lt;- c(rep(&quot;X&quot;, 3), rep(&quot;Y&quot;, 3))
+t1 &lt;- table(X, Y)
+t1</code></pre>
+<pre><code>##    Y
+## X   X Y
+##   A 3 0
+##   B 0 3</code></pre>
+<pre class="r"><code>Y &lt;- c(rep(&quot;Y&quot;, 3), rep(&quot;X&quot;, 3))
+t2 &lt;- table(X, Y)
+t2</code></pre>
+<pre><code>##    Y
+## X   X Y
+##   A 0 3
+##   B 3 0</code></pre>
+<pre class="r"><code>CramerV(t1)</code></pre>
+<pre><code>## [1] 1</code></pre>
+<pre class="r"><code>CramerV(t2)</code></pre>
+<pre><code>## [1] 1</code></pre>
+<p>There is no hypothesis test associated with Cramer’s V, however you
+can calculate confidence intervals using four different methods. I
+couldn’t immediately tell you why you should choose one over the other,
+though the fisher methods do seem to provide a little tighter upper
+bound for small samples.</p>
+<ol style="list-style-type: decimal">
+<li>“ncchisq” (using noncentral chisquare, the default)</li>
+<li>“ncchisqadj”</li>
+<li>“fisher” (using fisher z transformation)</li>
+<li>“fisheradj” (using fisher z transformation and bias correction)</li>
+</ol>
+<pre class="r"><code>X &lt;- c(rep(&quot;A&quot;, 10), rep(&quot;B&quot;, 10))
+Y &lt;- c(rep(&quot;Y&quot;, 9), rep(&quot;X&quot;, 8), &quot;X&quot;, &quot;Y&quot;, &quot;Y&quot;)
+t3 &lt;- table(X, Y)
+t3</code></pre>
+<pre><code>##    Y
+## X   X Y
+##   A 1 9
+##   B 8 2</code></pre>
+<pre class="r"><code>CramerV(t3, conf.level = 0.95) # &quot;ncchisq&quot; (default)</code></pre>
+<pre><code>##  Cramer V    lwr.ci    upr.ci 
+## 0.7035265 0.2652604 1.0000000</code></pre>
+<pre class="r"><code>CramerV(t3, conf.level = 0.95, method = &quot;ncchisqadj&quot;)</code></pre>
+<pre><code>##  Cramer V    lwr.ci    upr.ci 
+## 0.7035265 0.3469338 1.0000000</code></pre>
+<pre class="r"><code>CramerV(t3, conf.level = 0.95, method = &quot;fisher&quot;)</code></pre>
+<pre><code>##  Cramer V    lwr.ci    upr.ci 
+## 0.7035265 0.3789969 0.8739612</code></pre>
+<pre class="r"><code>CramerV(t3, conf.level = 0.95, method = &quot;fisheradj&quot;)</code></pre>
+<pre><code>##  Cramer V    lwr.ci    upr.ci 
+## 0.7035265 0.3947392 0.8782639</code></pre>
 
 
 

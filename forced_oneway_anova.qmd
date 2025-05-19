@@ -1,0 +1,63 @@
+---
+title: "Forced one-way ANOVA"
+author: "Clay Ford"
+format:
+  html:
+    embed-resources: true
+
+---
+
+
+## Generate data with an interaction
+
+Notice there are two factor variables: `x1` and `x2`. But also notice I use the `interaction()` function to create a single variable called `x12`.
+
+```{r}
+n <- 200
+x1 <- sample(x = letters[1:2], size = n, replace = TRUE)
+x2 <- sample(x = LETTERS[4:5], size = n, replace = TRUE)
+y <- 10 + (x1=="b")*3 + (x2=="E")*4 + (x1=="b")*(x2=="E")*-4 + 
+  rnorm(n = n, mean = 0, sd = 3)
+d <- data.frame(y, x1, x2, x12 = interaction(x1, x2)) 
+# show a few rows
+d[sample(200, size = 10),]
+```
+
+## Fit model using main effects and interaction
+
+Notice the last line of output, the omnibus F test. Null is all coefficients (except intercept) are 0.
+
+```{r}
+m <- lm(y ~ x1*x2, data = d)
+summary(m)
+```
+
+## Fit model using only the x12 variable
+
+This is basically a one-way ANOVA using a variable that is an interaction of two factor variables. Notice the last line of output, the omnibus F test, is equivalent to the previous model.
+
+```{r}
+m2 <- lm(y ~ x12, data = d)
+summary(m2)
+```
+
+## pairwise comparisons
+
+Posthoc pairwise comparisons are identical for both models.
+
+```{r}
+library(emmeans)
+emmeans(m, specs = c("x1", "x2")) |>
+  contrast("pairwise")
+emmeans(m2, specs = c("x12")) |>
+  contrast("pairwise")
+```
+
+## Non-parametric Krusak-Wallis
+
+We can use this approach with Kruskal-Wallis:
+
+```{r}
+kruskal.test(y ~ x12, data = d)
+```
+

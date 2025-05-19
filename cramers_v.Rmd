@@ -1,0 +1,48 @@
+---
+title: "Cramer's V"
+author: "Clay Ford"
+date: "1/20/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Cramer's V returns the same measure of association regardless of ordering of labels, where 1 is perfect association. Using Jennie's example, notice both equal 0:
+
+```{r}
+library(DescTools) # for CramerV() function
+X <- c(rep("A", 3), rep("B", 3))
+Y <- c(rep("X", 3), rep("Y", 3))
+t1 <- table(X, Y)
+t1
+
+Y <- c(rep("Y", 3), rep("X", 3))
+t2 <- table(X, Y)
+t2
+
+CramerV(t1)
+CramerV(t2)
+```
+
+There is no hypothesis test associated with Cramer's V, however you can calculate confidence intervals using four different methods. I couldn't immediately tell you why you should choose one over the other, though the fisher methods do seem to provide a little tighter upper bound for small samples.
+
+1. "ncchisq" (using noncentral chisquare, the default)
+2. "ncchisqadj"
+3. "fisher" (using fisher z transformation)
+4. "fisheradj" (using fisher z transformation and bias correction)
+
+
+```{r}
+X <- c(rep("A", 10), rep("B", 10))
+Y <- c(rep("Y", 9), rep("X", 8), "X", "Y", "Y")
+t3 <- table(X, Y)
+t3
+CramerV(t3, conf.level = 0.95) # "ncchisq" (default)
+CramerV(t3, conf.level = 0.95, method = "ncchisqadj")
+CramerV(t3, conf.level = 0.95, method = "fisher")
+CramerV(t3, conf.level = 0.95, method = "fisheradj")
+
+```
+

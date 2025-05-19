@@ -1,0 +1,74 @@
+---
+title: "Extracting data from UpSet Plot"
+author: "Clay Ford"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Example of Upset Plot
+
+An UpSet plot is like a Venn Diagram. Here's an UpSet plot of movie data genres. Below we see 893 movies were strictly classified as "Comedy". We also see there were 52 movies that were classified as both "Action and Comedy". There were 18 that were "Thriller", "Action" and "Drama". And so on.
+
+```{r}
+library(UpSetR)
+movies <- read.csv(system.file("extdata", "movies.csv", package = "UpSetR"), header=TRUE, sep=";" )
+upset(movies, nsets = 4)
+```
+
+## Extracting intersecting rows
+
+A student asked how they could identify specific interactions. For example, which 52 movies were both Action and Comedy? The student had data like the following:
+
+```{r}
+thriller <- subset(movies, Thriller == 1)
+action <- subset(movies, Action == 1)
+comedy <- subset(movies, Comedy == 1)
+drama <- subset(movies, Drama == 1)
+```
+
+So instead of having one data frame, she had separate data frames. 
+
+She created the UpSet plot using an alternative method where the movie name vectors were first extracted and placed in a list, and then the data was prepared for plotting using `fromList()` function, as follows:
+
+```{r}
+lst <- list(thriller = thriller$Name, action = action$Name, 
+            comedy = comedy$Name, drama = drama$Name)
+upset(fromList(lst))
+```
+
+Here's how I suggested identifying the groups of interest. For example, how to identify the 52 Action/Comedy movies. First inner join the action and comedy data frames, and then anti join the drama and thriller data frames. The latter step ensures we only keep rows from the inner join data frame that are not in the drama and thriller data frames.
+
+```{r message=FALSE}
+library(dplyr)
+action_comedy <- inner_join(action, comedy, by = "Name") |> 
+  anti_join(drama) |> 
+  anti_join(thriller)
+nrow(action_comedy)
+```
+
+## Another approach
+
+We saw above we can make the UpSet plot with one data frame if each genre is a column and contains a 1 or 0. A 1 means the movie belongs to the genre, 0 otherwise. How to identify rows of interest when working with one data frame? Here was my approach:
+
+```{r}
+# only working with four genres
+d <- subset(movies, select = c(Action, Comedy, Drama, Thriller))
+# genres of interest
+x <- c("Action", "Comedy")
+# index position of name in data frame
+k <- which(names(d) %in% x)
+# conditional: TRUE if sum of selected genres = length of genre vector AND
+# sum of not selected genres = 0
+i <- (apply(subset(d, select = k), 1, sum) == length(x)) & 
+  (apply(subset(d, select = -k), 1, sum) == 0)
+nrow(movies[i,])
+```
+
+I tried using tidyverse to do this but couldn't figure it out.
+
+
+

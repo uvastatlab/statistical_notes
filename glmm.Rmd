@@ -1,0 +1,296 @@
+---
+title: "Generalized Linear Mixed Model"
+author: "Clay Ford"
+date: "2/12/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Motivation
+
+When data are collected in clusters, or multiple measurements are made on the same subjects, the assumption of independent observations no longer holds. It is likely the clusters of data, or repeated measures, are correlated or related in some way. In addition, when our dependent variable is constrained to only two discrete values (eg, Success and Failure), we cannot rely on Normally distributed errors. A common method for addressing these issues is to use _Generalized Linear Mixed Models_ (GLMM).
+
+## Simulate data
+
+Understanding a GLMM analysis can be facilitated by simulating data for a GLMM. Let's pretend we want data with the following features:
+
+- **y**: a binary response that takes 1 for success and 0 for failure
+- **period**: a time measure that ranges from 1 to 5
+- **treat**: a 3-level treatment (G, M, S)
+- **wl**: a 3-level workload (L, T, H)
+- **id**: an identifier for each subject
+- **trial**: an identifier for subject trial
+
+We want to simulate data such that _y_ varies depending on _treat_, _wl_, and _period_. Let's simulate data for 100 subjects that have 34 x 3 measurements:
+
+- 3 workloads for treat = "G" and 5 periods (3 trials each)
+- 3 workloads for treat = "M" and 3 periods (3 trials each)
+- 2 workloads (L and H) for treat = "S" and 5 periods (3 trials each)
+
+```{r}
+n <- 100
+id <- seq(n)
+treat <- c("G", "M", "S")
+wl <- c("L", "T", "H")
+period <- 1:5
+trial <- 1:3
+d <- expand.grid(period = period, treat = treat, wl = wl, 
+                 trial = trial, id = id)
+# treatment "M" has 3 periods of measure instead of 5
+d <- d[!(d$treat == "M" & d$period %in% c(4,5)), ]
+# treatment "S" has 2 workloads instead of 3
+d <- d[!(d$treat == "S" & d$wl=="T"), ]
+# arrange for inspection
+d <- d[order(d$id, d$treat, d$wl, d$period, d$trial), 
+       c("id", "trial", "treat", "wl", "period")]
+```
+
+Now we simulate the response using a logistic regression model:
+
+$$\pi_{i} = \frac{\text{exp}(\beta_{0} + \beta_1x_{1} + \cdots + \beta_px_{p} + b_i)}{1 + \text{exp}(\beta_0 + \beta_1x_{1} + \cdots + \beta_px_{p} + b_i)}$$
+
+where $b_i$ is the random effect of subject _i_. $b_i$ is assumed to be drawn from a normal distribution with mean 0 and some constant standard deviation. The estimated random effect is the estimate of that constant standard deviation.
+
+The formula above is available as the `plogis` function in R.
+
+Below we generate interactions for period:treat and period:wl.
+
+```{r}
+set.seed(111)
+# generate random effect for each subject
+b <- rnorm(n, mean = 0, sd = 0.3)
+
+# generate linear predictor
+m <- 0.1 + 
+  0.3*(d$period) + 
+  0.2*(d$treat=="M") + 0.3*(d$treat=="S") +
+  0.2*(d$wl=="T")+ 0.3*(d$wl=="H") +
+  0.2*d$period*(d$treat=="M") + -0.2*d$period*(d$treat=="S") +
+  0.1*d$period*(d$wl=="T") + -0.3*d$period*(d$wl=="H") +
+  b[d$id]
+
+# generate probability using logistic function
+p <- plogis(m)
+
+# generate 0/1 using random binomial distribution
+d$y <- rbinom(nrow(d), size = 1, prob = p)
+
+```
+
+## Fit model
+
+Now we're ready to analyze the data and see if we can recover the TRUE values we used to simulate the data. We have to use lme4 for this; there is no generalized mixed-effect methods in the nlme package.
+
+Let's fit the "correct" model. (Note: I set `nAGQ = 0`, which results in a faster but less exact form of parameter estimation. This is mainly to speed up the creation of this document.)
+
+```{r message=FALSE}
+library(lme4)
+# correct model; formula matches formula used above
+m <- glmer(y ~ period + treat + wl + period:treat + period:wl + (1|id),
+           data = d, family = binomial, nAGQ = 0)
+summary(m, corr = FALSE)
+```
+
+Notice the estimated coefficients are pretty close to the "true" values. For example, the coefficient for`period:treatS` is estimated as `r fixef(m)["period:treatS"]`, which is pretty close to -0.2, the value we used above (ie, `-0.2*d$period*(d$treat=="S")`). Likewise the estimated random effect Std.Dev. is estimated as `r sqrt(VarCorr(m)$id[,"(Intercept)"])`, which is pretty close to 0.3, the true value used in the simulation (ie, `b <- rnorm(n, mean = 0, sd = 0.3)`). 
+
+With a fitted model, we can create effect plots.
+
+```{r message=FALSE}
+library(effects)
+plot(Effect(c("period", "treat"), mod = m), 
+     rug = FALSE, multiline = TRUE, ci.style = "bands", 
+     type="response")
+```
+
+The probability of success for the S group never really deviates from about 0.65. The probabilities of success for the M and G groups increase over time, with M having a higher probability of success. 
+
+Notice the M group is getting predictions for periods 4 and 5 for which we have no data. We can save the effect predictions into a data frame and subset out the predictions for period 4 and 5 for the M group and re-draw the plot. I find ggplot easier for this task.
+
+```{r}
+eff_df <- as.data.frame(Effect(c("period", "treat"), mod = m, ))
+eff_df <- eff_df[!(eff_df$treat == "M" & eff_df$period %in% c(4,5)),]
+library(ggplot2)
+ggplot(eff_df) +
+  aes(x = period, y = fit, color = treat, fill = treat) +
+  geom_line() +
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 1/4)
+```
+
+We could also remove group M altogether using the same strategy above.
+
+Let's fit a wrong model. We fit no interactions and specify a random effect for period in addition to the intercept.
+
+```{r}
+m2 <- glmer(y ~ period + treat + wl + (period|id),
+           data = d, family = binomial, nAGQ = 0)
+summary(m2, corr = FALSE)
+
+```
+
+We can compare the models via AIC since one is not nested within the other. The first model is appreciably better with a lower AIC.
+
+```{r}
+AIC(m, m2)
+```
+
+If we want we can simulate a random effect for period. Notice we draw 100 random normal values from N(0, 0.4) for each subject, multiply by period, and to the model.
+
+```{r}
+set.seed(222)
+# generate random effect for each subject
+b0 <- rnorm(n, mean = 0, sd = 0.3)
+b1 <- rnorm(n, mean = 0, sd = 0.4)
+
+# generate linear predictor
+m <- 0.1 + 
+  0.3*d$period + 
+  0.2*(d$treat=="M") + 
+  0.3*(d$treat=="S") +
+  0.2*(d$wl=="T")+ 
+  0.3*(d$wl=="H") +
+  0.2*d$period*(d$treat=="M") + 
+  -0.2*d$period*(d$treat=="S") +
+  0.1*d$period*(d$wl=="T") + 
+  -0.3*d$period*(d$wl=="H") +
+  b0[d$id] + b1[d$id]*d$period # random effects
+
+# generate probability using logistic function
+p <- plogis(m)
+
+# generate 0/1 using random binomial distribution
+d$y <- rbinom(nrow(d), size = 1, prob = p)
+```
+
+Now we fit the correct model. Notice the double bars in the random effect formula syntax (`||`). That says do _not_ estimate the correlation between the random effects for period and the intercept. That is correct because they are not correlated. We did not specify that in the simulation.
+
+```{r}
+# correct model
+m3 <- glmer(y ~ period + treat + wl + period:treat + period:wl + 
+              (period||id),
+            data = d, family = binomial, nAGQ = 0)
+```
+
+Let's fit the "wrong" model that allows the random effects to be correlated. (ie, just one bar in the random effect syntax)
+
+```{r}
+# wrong model
+m4 <- glmer(y ~ period + treat + wl + period:treat + period:wl + 
+              (period|id),
+            data = d, family = binomial, nAGQ = 0)
+VarCorr(m4)
+```
+
+The estimated correlation is close to 0. Comparing AIC values is not super decisive. The larger model with correlation has a slightly higher AIC.  
+
+```{r}
+AIC(m3, m4)
+```
+
+
+In real life we never know the correct model. The above was meant to demonstrate the assumptions we make when we fit a model.
+
+
+## One-way ANOVA style model
+
+We can combine the `treat` and `wl` groups into one factor using the `interaction` function. I call this variable `WL`.
+
+```{r}
+# droplevels drops "S.T" as a level since there is no Sudden-Transition grouping.
+d$WL <- droplevels(interaction(d$treat, d$wl))
+
+```
+
+Let's simulate new data. Notice we don't interact period with WL. This is mainly to help me simulate data. An interaction would have resulted in a much longer formula!
+
+```{r}
+set.seed(333)
+# generate random effects for each subject
+b0 <- rnorm(n, mean = 0, sd = 0.3)
+b1 <- rnorm(n, mean = 0, sd = 0.2)
+
+# generate linear predictor
+m <- 0.1 + 
+  0.3*d$period + 
+  0.1*(d$WL == "M.L") +
+  0.2*(d$WL == "S.L") +
+  0.3*(d$WL == "G.T") +
+  0.2*(d$WL == "M.T") +
+  -0.1*(d$WL == "G.H") +
+  -0.2*(d$WL == "M.H") +
+  -0.3*(d$WL == "S.H") +
+  b0[d$id] + b1[d$id]*d$period # random effects
+
+# generate probability using logistic function
+p <- plogis(m)
+
+# generate 0/1 using random binomial distribution
+d$y <- rbinom(nrow(d), size = 1, prob = p)
+```
+
+Now fit the "correct" model.
+
+```{r}
+m5 <- glmer(y ~ period + WL + (period||id), data = d, 
+            family = binomial, nAGQ = 0)
+summary(m5, corr = FALSE)
+```
+
+Testing for differences between levels of WL can be carried out using the multcomp package. Setting up a custom contrast takes extra work. Below is an example.
+
+`K` is the contrast matrix. Each row represents a comparison. "G.L" is the reference level, and R fits treatment contrasts by default, so the coefficients for all other levels are difference from "G.L". So any comparison with "G.L" is simply that coefficient (1st and 4th rows of K). The number of zeroes and ones (in this case, 9) corresponds to the number of coefficients in our model.
+
+```{r message=FALSE}
+library(multcomp)
+
+# create the contrast for multiple comparisons
+K <- rbind("S.L - G.L" = c(0, 0, 0, 1, 0, 0, 0, 0, 0),
+           "S.H - G.H" = c(0, 0, 0, 0, 0, 0, -1, 0, 1),
+           "M.H - G.H" = c(0, 0, 0, 0, 0, 0, -1, 1, 0),
+           "M.L - G.L" = c(0, 0, 1, 0, 0, 0, 0, 0, 0))
+mc <- glht(m5, linfct = K)
+summary(mc)
+```
+
+The tests have adjusted p-values to help protect against false positives. The default is the single-step method. There are many others to choose from. The most conservative is the bonferroni correction. Here's how to specify it, although the results are not much different and thus not shown.
+
+```{r eval=FALSE}
+summary(mc, test = adjusted(type = "bonferroni"))
+
+```
+
+To see confidence intervals on the estimated differences use the `confint` function.
+
+```{r}
+confint(mc)
+```
+
+
+The multcomp package has some basic plotting methods for these tests as well. The difference between levels is plotted along with 95% error bars. Overlap with the dotted 0 line indicates uncertainty about whether or not the magnitude is positive or negative.
+
+```{r}
+par(mar = c(5.1, 5.1, 4.1, 2.1))
+plot(mc)
+```
+
+## Basic diagnostics
+
+Recall the assumption: random effects are drawn from a Normal distribution with constant variance. Two plots to help assess this assumption are `dotplot` and `qqmath`. We call these plots on the random effects which we extract with `ranef`.
+
+The `dotplot` is good for checking the constant variance assumption. This plot is sometimes called a "caterpillar plot". We like what we see here. The error bars around the random effects are a constant size. Also we don't see any random effects too far above or below 0.
+
+```{r}
+re <- ranef(m5)
+lattice::dotplot(re)
+```
+
+To check the normality assumption, call `qqmath` on each random effect. Again these look good.
+
+```{r}
+lattice::qqmath(re$id$`(Intercept)`)
+lattice::qqmath(re$id$period)
+```
+
+

@@ -1,0 +1,149 @@
+---
+title: "Understanding the {ggeffects} `predict_response()` `margin` argument"
+author: "Clay Ford"
+date: "2025-01-10"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, comment = "")
+```
+
+Elaborating on the {ggeffects} vignette, [Difference Between Marginalization Methods: The `margin` Argument](https://strengejacke.github.io/ggeffects/articles/technical_differencepredictemmeans.html).
+
+Fit a model for examples using one factor and one numeric predictor.
+
+```{r}
+library(ggeffects)
+data(mtcars)
+mtcars$cyl <- factor(mtcars$cyl)
+m <- lm(mpg ~ wt + cyl, data = mtcars)
+```
+
+Notice the reference level is "4".
+
+```{r}
+levels(mtcars$cyl)
+```
+
+Notice the most frequently occurring level is "8".
+
+```{r}
+table(mtcars$cyl)
+```
+
+## "mean_reference"
+
+This is the default. Predictions are made holding the non-focal predictor, in this case the factor "cyl", at its reference level.
+
+```{r}
+predict_response(m, terms = "wt [2.5, 3, 3.5]", margin = "mean_reference")
+```
+
+Here are the predictor values used to predict the response. The `data_grid()` function is in the {ggeffects} package.
+
+```{r}
+new_mean <- data_grid(m, terms = "wt [2.5, 3, 3.5]", typical = "mean")
+new_mean
+```
+
+Replicate the result of `predict_response()` using the base R `predict()` function:
+
+```{r}
+p <- predict(m, newdata = new_mean) |> 
+  round(2)
+cbind(wt = c(2.5, 3, 3.5), pred = p)
+```
+
+## "mean_mode"
+
+Predictions are made holding the non-focal predictor, in this case the factor "cyl", at its mode.
+
+
+```{r}
+predict_response(m, terms = "wt [2.5, 3, 3.5]", margin = "mean_mode")
+```
+
+Here are the predictor values used to predict the response. Notice we set `typical = "mode"`.
+
+```{r}
+new_mode <- data_grid(m, terms = "wt [2.5, 3, 3.5]", typical = "mode")
+new_mode
+```
+
+Replicate the result of `predict_response()` using the base R `predict()` function:
+
+```{r}
+p <- predict(m, newdata = new_mode) |> 
+  round(2)
+cbind(wt = c(2.5, 3, 3.5), pred = p)
+```
+
+## "marginalmeans"
+
+Predictions are made at _all combinations_ of the variables, both focal and non-focal, and then the predictions are averaged by the levels of the focal predictor.
+
+```{r}
+predict_response(m, terms = "wt [2.5, 3, 3.5]", margin = "marginalmeans")
+```
+
+To get predictor values, we can use `expand.grid()` to get all combinations.
+
+```{r}
+new_marginalmeans <- expand.grid(wt = c(2.5, 3, 3.5), 
+                                 cyl = factor(c(4,6,8)))
+new_marginalmeans
+```
+
+A prediction is made at each combination of predictor variables.
+
+```{r}
+new_marginalmeans$pred <- predict(m, newdata = new_marginalmeans)
+new_marginalmeans
+```
+
+Then we calculate the mean prediction by "wt" level to get the predicted values returned by {ggeffects}.
+
+```{r}
+aggregate(pred ~ wt, data = new_marginalmeans, mean) |> 
+  round(2)
+```
+
+## "empirical" (or "counterfactual")
+
+Predictions are made at _each observation_ of the original data using the observed non-focal predictor and a level of the focal predictor. This is repeated for each level of the focal predictor. And then the predictions are averaged at each level of the focal predictor.
+
+In this example, that means setting all 32 cars in the mtcars data frame to have wt = 2.5 and then calculating the predicted mpg for each car. Repeat this process again setting wt = 3, and then again setting wt = 3.5. When done, take the average of the predictions at each level of wt. This is what happens when we set `margin = "empirical"`.
+
+```{r}
+predict_response(m, terms = "wt [2.5, 3, 3.5]", margin = "empirical")
+```
+
+To replicate the calculation, we need to first replicate the data frame once for each value of the focal predictor. Below I only keep the "cyl" column since that's all we need. We add the "wt" variable in the next code chunk.
+
+```{r}
+new_emprical <- do.call(rbind, replicate(3, mtcars[,"cyl", drop = F], 
+                                         simplify = FALSE))
+```
+
+Now add the "wt" variable. Add one level to each replicate of the data. Notice we have 96 rows, which is three times the size of the original dataset which has 32 rows.
+
+```{r}
+new_emprical$wt <- rep(c(2.5, 3, 3.5), each = nrow(mtcars))
+nrow(new_emprical)
+```
+
+Now make predictions for each row, 96 in all.
+
+```{r}
+new_emprical$pred <- predict(m, newdata = new_emprical)
+```
+
+Finally, calculate the mean prediction by "wt" level to get the predicted values returned by {ggeffects}.
+
+```{r}
+aggregate(pred ~ wt, data = new_emprical, mean) |> 
+  round(2)
+```
+
+
