@@ -1,0 +1,155 @@
+---
+title: "Large CIs in mixed effect model"
+author: "Clay Ford"
+date: '2022-04-05'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## The data
+
+
+```{r message=FALSE}
+library(lme4)
+library(emmeans)
+library(ggplot2)
+
+LitterCN <- read.table("Litter20192020.txt", header = TRUE)
+LitterCN$Age <- factor(LitterCN$Age)
+LitterCN$Plot <- factor(LitterCN$Plot)
+LitterCN$Year <- factor(LitterCN$Year)
+
+```
+
+Notice the response variable ranges from 0.9 to 3.2.
+
+```{r}
+summary(LitterCN$N_perc)
+```
+
+Quick visual.
+
+```{r}
+ggplot(LitterCN) +
+  aes(x = Age, y = log(N_perc)) +
+  geom_jitter(width = 0.1, height = 0) +
+  facet_grid(~ Year)
+
+```
+
+The goal is to model N_perc as a function of Age taking into account that there are clsters of measures within Plots that are nested within Years.
+
+```{r}
+xtabs(~ Plot + Year, data = LitterCN)
+```
+
+Notice all the zeroes! There are several plots with 0 observations for a given year.
+
+## Fit the model
+
+Here is the model the student fit. They log-transformed N_perc to help meet modeling assumptions. They elected to specify Year as a random effect which I don't agree with. This basically says there are three sources of variation in the data:
+
+1. between years
+2. between all combinations of plots and years
+3. within all combinations of plots and years
+
+The model says to fit a random intercept to all plot:year combinations. That's 42 random effects. The size of the data is n = 71.
+
+```{r}
+Nperc.lme <- lmer(log(N_perc) ~ Age + (1|Year/Plot), 
+                  data=LitterCN)
+```
+
+## Make estimates
+
+Next they used the emmeans package to get estimated mean N_perc for each level of Age. 
+
+```{r}
+emm <- emmeans(Nperc.lme, "Age", type = "response")
+emm
+```
+
+Notice how large the confidence intervals are! Recall the response variable only ranges from about 0.9 to 3.2. Their question was, "why are the intervals so big?"
+
+## Degrees of freedom
+
+The answer is the approximate degrees of freedom. Why are they approximate? When data is unbalanced in a mixed-effect model [the null distribution of the coefficient test statistics are unknown](http://bbolker.github.io/mixedmodels-misc/glmmFAQ.html#why-doesnt-lme4-display-denominator-degrees-of-freedomp-values-what-other-options-do-i-have). Hence statisticians have derived a couple of approximations. The one emmeans uses by default is called the Kenward-Roger. 
+
+Now notice the values are about 1.2. That's tiny. The t-distribution is parameterized by its degrees of freedom. The smallest df it can take is 1, which produces the pathological Cauchy distribution with infinite variance. So a t-distribution with df = 1.2 is going to have huge variability!
+
+We use the t distribution to get a quantile to multiply the standard error by and get a margin of error. The classic example given in an Intro Stats book is this:
+
+$$\text{MOE} = \text{se} \times 1.96$$
+
+$$\text{CI} = \bar{x} \pm \text{MOE} $$
+
+The 1.96 value is the 97.5% quantile of the standard normal distribution.
+
+```{r}
+qnorm(0.975)
+```
+
+The 97.5% quantile of a t-distribution with df = 1.16 is MUCH larger.
+
+```{r}
+qt(0.975, df = 1.16)
+```
+
+Hence the reason the confidence intervals are so big.
+
+Now the follow-up question is why are df approximations so small? This is tougher to answer. The Kenward-Roger derivation is very complicated (see Appendix A.1 of [this paper](https://www.jstatsoft.org/article/download/v059i09/771)). Common sense tells us however that it's likely due to having 42 random effects on sample size of 71, along with about a dozen of those random effects based on 0 observations. (see `xtabs` table above)
+
+If we treat Year as a fixed effect, the degrees of freedom climb up to around 23 - 25, which results in quantiles closer to 1.96.^[Many statisticians simply add/subtract 2 standard errors to get confidence intervals in their head. (No reason to obsess over 2 versus 1.96 when we're dealing with estimates.)]
+
+```{r}
+sapply(23:25, function(x)qt(0.975, df = x))
+```
+
+
+```{r}
+Nperc.lme2 <- lmer(log(N_perc) ~ Age + Year + (1|Plot), 
+                  data=LitterCN)
+emmeans(Nperc.lme2, "Age", type = "response")
+```
+
+I happen to think Year should be a fixed effect. Time is usually a fixed effect in mixed-effect models. One way to think about it: if I were to replicate this experiment I would also carry it out over two years but use a different set of plots. Hence Year (time) is a fixed effect but Plot is a random effect. 
+
+## My email reply
+
+Let’s look at the default result for emmeans(Nperc.lme, "Age", type = "response"):
+
+```
+> as.data.frame(emm)
+  Age response        SE       df  lower.CL upper.CL
+1   E 1.577338 0.2628918 1.158641 0.3375770 7.370157
+2   L 1.392959 0.2354046 1.223774 0.3402429 5.702791
+3   M 1.758831 0.2930040 1.156475 0.3745622 8.258938
+```
+
+The first entry, Age = E, has a huge 95% confidence interval of [0.338, 7.37]. The confidence interval is calculated using the t-distribution. You basically add and subtract the margin of error from the estimated value of 1.577. The margin of error is the standard error, 0.2628, times the 0.975 quantile from a t distribution with 1.16 degrees of freedom. That is a tiny df! A t-distribution with df = 1 is a Cauchy distribution with undefined variance! So the quantile is large. We can calculate in R as follows:
+
+```
+> qt(p = 0.975, df = 1.158641)
+[1] 9.25012
+```
+
+Calculate margin of error using the standard error on the log scale, add/subtract to the estimated mean on log scale, and then exponentiate:
+
+```
+se <- 0.2628918/1.577338 ## SE on log scale: 0.1666680
+moe <- se * qt(p = 0.975, df = 1.158641)
+
+exp(log(1.577338) + c(-moe, moe))
+[1] 0.3375774 7.3701480
+```
+There’s some rounding error, but it matches. The weird standard error calculation is due to back-transforming a log transformed standard deviation. To get it to the original scale, you have to multiply the estimated mean by the standard error:
+
+```
+1.577338 * 0.1666680 = 0.2628918
+```
+So to work backwards and get 0.1666680 (the SE above), you have to divide 0.2628918 by 1.577338.
+
+ANYWAY….all that to say, the Kenward-Roger degree of freedom estimates are tiny, probably because of the “empty” Plots within Years. A df estimate in a t-distribution is basically the sample size minus estimated parameters. The largest sample size you have in Plots nested within Years is 3, with a lot of ones, twos and zeroes. Hence the estimated df is barely above 1. So lots of uncertainty and thus big confidence intervals. 

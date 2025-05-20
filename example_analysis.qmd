@@ -1,0 +1,155 @@
+---
+title: "Example Analysis using Simulated Data"
+author: "Clay Ford"
+format:
+  html:
+    embed-resources: true
+---
+
+```{r echo=FALSE}
+# simulate data
+n <- 360
+id <- 1:n
+rotation <- LETTERS[1:6]
+set.seed(1)
+personality <- sample(c("red","yellow","blue","green"), 
+                      size = n, replace = TRUE)
+d <- expand.grid(rotation = rotation, id = id)
+d$personality <- factor(personality[d$id])
+subj_error <- rnorm(n = n, mean = 0, sd = 2)
+d$score <- (90 + subj_error[d$id]) + 2*(d$personality == "green") +
+  3*(d$personality == "red") + -3*(d$personality == "blue") +
+  -4*(d$rotation == "B") + -3*(d$rotation == "C") +
+  4*(d$rotation == "D") + -3*(d$rotation == "E") + 1.5*(d$rotation == "F") +
+  2*(d$personality == "red")*(d$rotation == "B") +
+  -3*(d$personality == "blue")*(d$rotation == "D") +
+  rnorm(n = nrow(d), mean = 0, sd = 5)
+d$score <- (100 - 80)*((d$score - min(d$score))/(max(d$score) - min(d$score))) + 80
+d$score <- round(d$score)
+```
+
+
+## Look at data
+
+I have simulated some data based on our conversation using R. I have named the data "d" for simplicity. We only have one data set and it's less typing. Below I use the `head()` function to look at the "head" of the data (ie, first 6 rows). We see subject 1 went through all 6 rotations, has "red" personality type, and got scores between 90 and 93. The scores are probably lower than what you anticipate. But for sake of demonstration we'll use this data.
+
+```{r}
+head(d)
+```
+
+How many rows does our data have? We can use the `nrow()` function
+
+```{r}
+nrow(d)
+```
+
+How many subjects do we have? We need to get the unique count of ID. First we use the `unique()` function to get the distinct values of the ID column. We use the `$` operator to reach into our data frame, d, and extract the ID column. Then we use the `length()` function to get the "length" of the result. We have 360 subjects.
+
+```{r}
+length(unique(d$id))
+```
+
+Let's tally up the unique personality types using the `table()` function.
+
+```{r}
+table(d$personality)
+```
+
+That's too many. Remember, we have one row per subject per rotation. Since we have 6 rotations we can divide by 6 to get the unique count of personality types.
+
+```{r}
+table(d$personality)/6
+```
+
+Calculate mean scores by rotation and personality type. Below we use `tapply()` to create a table of results. The first argument is the variable we want to summarize. The second is a _list_ of categorical variables that determine the groups, and the last is the function we want to _apply_ to all the groups.
+
+```{r}
+tapply(d$score, list(d$rotation, d$personality), mean)
+```
+
+A visualization of raw data might be easier to digest. Below we use an R _package_, called ggplot2, that provides additional functionality to R. You can think of an R package like an app you might install on your phone.
+
+```{r}
+library(ggplot2)
+ggplot(d) +
+  aes(x = rotation, y = score) +
+  geom_jitter(width = 0.1) +
+  facet_wrap(~personality)
+```
+
+## Analysis
+
+Fit a multilevel model and test each predictor's contribution to the model, including the interaction. The lme4 package provides the `lmer()` function for fitting multilevel models. The car package provides the `Anova()` function for testing contributions of predictors in a model. All predictors appear "significant".
+
+```{r message=FALSE}
+library(lme4)
+library(car)
+m <- lmer(score ~ rotation + personality + rotation:personality + (1|id), 
+          data = d)
+Anova(m)
+```
+
+Calculate means from the model. The emmeans package makes this easier. The syntax `pairwise ~ personality | rotation` says to perform _pairwise_ comparisons of scores between personality types, conditional on rotation. The highest means are green and red personality types in rotation D.
+
+```{r}
+library(emmeans)
+means <- emmeans(m, pairwise ~ personality | rotation)
+means$emmeans
+```
+
+Comparisons between all personality means _conditional on rotation_. There are many "significant" differences. Are they meaningful or practical differences? That's for you to decide, I suppose. For example, the difference between blue and green personality types in rotation A is -1.9 (first row below). It's statistically significant, but is it important?
+
+```{r}
+means$contrasts
+```
+
+We can make a plot of estimated means with 95% confidence intervals.
+
+```{r}
+plot(means)
+```
+
+An effect plot can help us _visualize the interaction_ in the model. Below we use yet another package, ggeffects, to do this. The interactions seem slight. If there was no interaction we would expect parallel lines. But notice how the lines diverge in places, particularly the red and green personality types. This says the effect of personality depends on rotation, and vice versa.
+
+```{r message=FALSE}
+library(ggeffects)
+plot(ggpredict(m, terms = c("rotation", "personality")), 
+     connect.lines = TRUE) + 
+  scale_color_manual(values = c("blue", "green4", "red", "yellow2"))
+```
+
+The blue personality type appears to perform worse through all rotations, while rotations D and F seem to have higher scores on average.
+
+# Code to generate data
+
+If interested, here is the R code I used to generate the fake data we just analyzed. If you've never used R before it may look cryptic. Happy to explain it if you want to learn more.
+
+```{r eval=FALSE}
+#| code-fold: true
+#| code-summary: "Show the code"
+# simulate data
+n <- 360
+id <- 1:n
+rotation <- LETTERS[1:6]
+set.seed(1)
+personality <- sample(c("red","yellow","blue","green"), 
+                      size = n, replace = TRUE)
+d <- expand.grid(rotation = rotation, id = id)
+d$personality <- factor(personality[d$id])
+# subject-specific noise
+subj_error <- rnorm(n = n, mean = 0, sd = 2)
+# add some fixed effects and a couple of interactions
+d$score <- (90 + subj_error[d$id]) + 2*(d$personality == "green") +
+  3*(d$personality == "red") + -3*(d$personality == "blue") +
+  -4*(d$rotation == "B") + -3*(d$rotation == "C") +
+  4*(d$rotation == "D") + -3*(d$rotation == "E") + 1.5*(d$rotation == "F") +
+  2*(d$personality == "red")*(d$rotation == "B") +
+  -3*(d$personality == "blue")*(d$rotation == "D") +
+  rnorm(n = nrow(d), mean = 0, sd = 5)
+# rescale scores to 80-100 and round to whole numbers
+# https://stats.stackexchange.com/a/281165/46334
+d$score <- (100 - 80)*((d$score - min(d$score))/(max(d$score) - min(d$score))) + 80
+d$score <- round(d$score)
+```
+
+

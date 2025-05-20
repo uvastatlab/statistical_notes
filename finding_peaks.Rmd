@@ -1,0 +1,62 @@
+---
+title: "finding peaks"
+author: "Clay Ford"
+date: "6/14/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Amelia's question
+
+Is there a way to look at these metrics when looking at three distinct points in the data? I've attached a screen shot of what the data looks like but essentially we are seeing on average 3 peaks during a squat cycle (indicating the three squats completed in that trial). Is there a way to tell R we want to look at those three peaks? So for example could we look at the average peak force out put across those 3 peaks, average Force distribution of inv/total at those three points in time, etc.
+
+![](3peaks.JPG)
+
+## One possibility
+
+This can be done. One way is to use the `findpeaks` function in the pracma package. However, this can be tricky because what the function determines as peaks may not be your idea of peaks. Take the following example:
+
+```{r}
+sq_left <- read.csv(file = "LEAP_628_Other_041_KE/Squat1_Left_F.csv", skip = 24)
+```
+
+Here is the plot of Force for the left leg. I see about three peaks: one on the left, one in the middle, and one on the right. 
+
+```{r}
+plot(sq_left$Force.Y.cyan., col = "cyan", type = "l")
+```
+
+Now let's see which three peaks the `findpeaks` function finds.
+
+```{r}
+library(pracma)
+peaks <- findpeaks(sq_left$Force.Y.cyan., npeaks = 3, sortstr = TRUE)
+plot(sq_left$Force.Y.cyan., col = "cyan", type = "l")
+points(peaks[, 2], peaks[, 1], pch=20, col="maroon")
+```
+
+Probably not what we were expecting. With some tweaking we can improve peak identification. (But will this tweaking work for every subject?)
+
+```{r}
+peaks <- findpeaks(sq_left$Force.Y.cyan., npeaks = 3, sortstr = TRUE, 
+                   nups = 3, ndowns = 3)
+plot(sq_left$Force.Y.cyan., col = "cyan", type = "l")
+points(peaks[, 2], peaks[, 1], pch=20, col="maroon")
+
+```
+
+It didn't select the "peak" on the left, but maybe that's OK.
+
+The right leg is even more problematic (at least for this subject). Notice the selected peaks. Are they really peaks of interest?
+
+```{r}
+sq_right <- read.csv(file = "LEAP_628_Other_041_KE/Squat1_Right_F.csv", skip = 24)
+peaks <- findpeaks(sq_right$Force.Y.red., npeaks = 3, sortstr = TRUE)
+plot(sq_right$Force.Y.red., col = "red", type = "l")
+points(peaks[, 2], peaks[, 1], pch=20, col="black")
+
+```
+

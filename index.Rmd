@@ -40,15 +40,23 @@ Demonstration of using term plots to detect departures from linearity for coeffi
 - [Compact Letter Displays](cld.html) (Clay Ford, 2024-03-24)    
 How to create and interpret Compact Letter Displays, though [some people don't like them](https://stats.stackexchange.com/questions/275832/interpreting-compact-letter-displays-and-tukey-multiple-comparisons-from-glmm#comment829280_275832).
 
+- [Complex reshaping example](complex_reshaping_example.html) (Clay Ford, 2024-02-15)      
+The data set in question had six different sets of variables that needed to be reshaped into “long” format. Each set was collected over five waves. This shows how to do the reshaping using `pivot_longer()`.
+
 - [Forced One-way ANOVA](forced_oneway_anova.html) (Clay Ford, 2023-12-01)    
 Convert a two-way ANOVA into a one-way ANOVA.
 
 - [Recoding example](recoding_example.html) (Clay Ford, 2023-10-06)       
 Recoding example using a lookup table.
 
+- [Multi-level model example using simulated data](example_analysis.html) (Clay Ford, 2023-10-03)    
+Example of multi-level model written for someone who was brand new to R. Includes demo of {emmeans} and {ggeffects}.
 
 - [Data wrangling consultation](consultation_summary_2023-08-28.html) (Clay Ford, 2023-08-28)     
 Data wrangling tasks: (1) drop any groups with less than 10 rows, (2) drop rows with runs of zeroes greater than or equal to 5.
+
+- [Split violin plots](split_violin_plots.html) (Clay Ford, 2022-10-18)     
+Demo of how to create split violin plots using `introdataviz::geom_split_violin()`
 
 - [The stats::filter() function](stats_filter_function.html) (Clay Ford, 2022-10-12)      
 How to use the the base R `filter()` function to calculate moving averages.
@@ -66,8 +74,16 @@ Demo of three ways to fit a logistic regression model in R.
 - [Comparing a mediation analysis and with a t-test](mediation_analysis_ttest.html) (Clay Ford, 2022-05-25)       
 The difference in means from a t-test is the “Total Effect” in mediation analysis.
 
+- [Explaining large confidence intervals](large_CIs.html) (Clay Ford, 2022-04-05)      
+Student wondered why confidence intervals on marginal means were so large. Due to small estimated degrees of freedom. 
+
+
 - [Nomogram demo](nomogram_demo.html) (Clay Ford, 2022-03-31)     
 This demonstration is a modification of the example available on the `nomogram()` help page from the {rms} package. It demonstrates a nomogram for a logistic regression model using simulated data.
+
+- [Identifying peaks in a line plot](finding_peaks.html) (Clay Ford, 2021-06-14)     
+One possible method of identifying peaks in a line plot using the `findpeaks()` function in the {pracma} package.
+
 
 - [Demo of Generalized Linear Mixed Model](glmm.html) (Clay Ford, 2021-02-12)    
 A demonstration of binomial GLMM using simulated data.

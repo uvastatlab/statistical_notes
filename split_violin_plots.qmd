@@ -1,0 +1,53 @@
+---
+title: "split violin plots"
+author: "Clay Ford"
+format:
+  html:
+    self-contained: true
+editor: visual
+---
+
+## Load data
+
+```{r}
+#| message: false
+library(lubridate)
+library(ggplot2)
+library(patchwork)
+# devtools::install_github("psyteachr/introdataviz")
+library(introdataviz)
+
+d <- read.csv("sleep_env.csv")
+d$datetime <- ymd_hms(d$datetime)
+# drop 31 and 35
+d <- subset(d, !patient_id %in% c(31, 35))
+d$sleep_wake <- factor(d$sleep_wake, 
+                       labels = c("asleep", "disrupted"))
+```
+
+## Function to create plots
+
+```{r}
+p_func <- function(var){
+  p <- ggplot(d) +
+    aes_string(x = var, y = var, fill = "sleep_wake") +
+    introdataviz::geom_split_violin(alpha = .4, trim = FALSE) +
+    ylab("") +
+    scale_x_continuous(labels = NULL, breaks = NULL) +
+    theme_minimal()
+  p
+}
+```
+
+## Create plot
+
+```{r}
+#| message: false
+#| warning: false
+p1 <- p_func("temp")
+p2 <- p_func("humid")
+p3 <- p_func("co2")
+p4 <- p_func("spl_a")
+# plot_layout(guides = 'collect') for just one legend
+p1 + p2 + p3 + p4 + plot_layout(guides = 'collect')
+```
