@@ -18,6 +18,9 @@ Investigating multicolinearity and challenging idea of inspecting pairwise corre
 - [Understanding the {ggeffects} predict_response() margin argument](ggeffects_margin_argument.html) (Clay Ford, 2025-01-10)    
 Elaborating on the {ggeffects} vignette, [Difference Between Marginalization Methods: The margin Argument](https://strengejacke.github.io/ggeffects/articles/technical_differencepredictemmeans.html).
 
+- [tidyLPA notes](tidyLPA.html) (Clay Ford and Lauren Brideau, 2024-11-01)    
+Notes on using the {tidyLPA} package and how it relates to the {mclust} package.
+
 - [Polyserial and Polychoric Correlation](polychoric_and_polyserial_correlations.html) (Clay Ford, 2024-09-24)      
 An intro to polyserial and polychoric correlation using the {polycor} package. 
 
@@ -53,4 +56,4 @@ Demo of calculating CIs for Cramer's V for a small sample.
 The normality assumption in linear modeling (multiple regression) is on the residuals, not the dependent or independent variables.
 
 - [Stepwise Model Selection performing poorly](stepwise_simulation.html) (Clay Ford, 2020-09-01)     
-Demo of stepwise model selection performing poorly in the presence of collinearity.
+Demo of stepwise model selection performing poorly in the presence of collinearity. [Stepwise selection should be avoided anyway](https://discourse.datamethods.org/t/reference-collection-to-push-back-against-common-statistical-myths/1787#p-4596-stepwise-variable-selection-dont-do-it-7).

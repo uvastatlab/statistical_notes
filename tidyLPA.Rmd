@@ -1,0 +1,240 @@
+---
+title: "tidyLPA notes"
+author: "Clay Ford"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+```
+
+- The {tidyLPA} package provides a wrapper for the {mclust} package.
+
+- Latent Profile Analysis (LPA) is a statistical modeling approach for estimating distinct profiles, or groups, of variables.
+
+- LPA can be used for different dimensions, or for a single dimension over time.
+
+- Works best with numeric data.
+
+- The mclust algorithm does not allow for missing data. 
+
+The following example is from 2024-11-01. Data from grad student in Psych department. This was the code she sent us.
+
+```{r message=FALSE}
+library(haven)
+library(dplyr)
+data <- read_sav("data_subset.sav")
+
+# Removing missing cases; The mclust algorithm does not allow for missing data.
+data_complete <- data %>%
+  filter(!is.na(w2cope) & !is.na(w3cope) & !is.na(w4cope) & !is.na(w5cope) &
+         !is.na(w2DISCRIM) & !is.na(w3DISCRIM) & !is.na(w4DISCRIM) & !is.na(w5DISCRIM),
+         !is.na(w2GOAL) & !is.na(w3GOAL) & !is.na(w4GOAL) & !is.na(w5GOAL))
+```
+
+## Run LPA
+
+Now run a LPA for "coping" measured at four time points. The key {tidyLPA} function is `estimate_profiles()`. 
+
+- The `n_profiles = 2:4` argument says to try 2, 3, and 4 groups, or profiles. 
+- The `models = 1` argument says to fit a model with "Equal variances and covariances fixed to 0". In {mclust}, this is model "EEI" with diagonal distribution, equal volume, and equal shape. See Table 3 in [Scrucca, et al 2016](https://journal.r-project.org/articles/RJ-2016-021/).
+
+```{r}
+library(tidyLPA)
+# Coping LPA
+lpa_model <- data_complete %>%
+  select(w2cope, w3cope, w4cope, w5cope) %>%
+  estimate_profiles(n_profiles = 2:4, models = 1)
+```
+
+The output lists the results of three models.
+
+- The BLRT_p column is the result of bootstrap LRT tests. The final p-value of 0.39 suggests the model with 4 classes (or profiles) is no better than the model with 3 classes. The second p-value of 0.01 says the model with 3 classes (or profiles) is preferred to a model with 2 classes.
+- The BIC column also selects the model with 3 classes (or profiles)
+
+```{r}
+lpa_model
+```
+
+To get the same result with {mclust} we use the `Mclust()` function with `G = 2:4` and `modelNames = "EEI"`.
+
+```{r message=FALSE}
+library(mclust)
+mclust_model <- Mclust(data_complete[,c("w2cope", "w3cope", "w4cope", "w5cope")], 
+              G = 2:4, modelNames = "EEI")
+```
+
+Calling `summary()` on the model object only returns the best fitting model, the model with 3 classes (or profiles, or "components"). Notice it also assigns observations to the classes, reported in the "Clustering table".
+
+```{r}
+summary(mclust_model)
+```
+
+## Get estimates
+
+{mclust} estimates means and variances of ellipsoids. Again, see Table 3 in [Scrucca, et al 2016](https://journal.r-project.org/articles/RJ-2016-021/). {tidyLPA} is simply a wrapper for  {mclust}. 
+
+To see the means and variances of a {tidyLPA} object use the `get_estimates()` function. Notice it's returned as a nice data frame.
+
+```{r}
+get_estimates(lpa_model)
+```
+
+To see the means and variances of a {mclust} object call `summary()` with `parameters = TRUE`. 
+
+```{r}
+summary(mclust_model, parameters = TRUE)
+```
+
+Notice the "mixing probabilities". These are probabilities for class assignment. The minimum and maximum probabilities are reported in the {tidyLPA} output above as "n_min" and "n_max".
+
+## Plot model
+
+The {tidyLPA} package provides the `plot_profiles()` function, which make a plot for all models that were fit.
+
+```{r}
+lpa_model |> 
+  plot_profiles(rawdata = FALSE)
+```
+
+{mclust} provides a classification plot showing pairwise scatterplots with the classification superimposed. You can see the ellipsoids are all the same size (ie, "Equal variances and covariances fixed to 0")
+
+```{r}
+plot(mclust_model, what = "classification")
+```
+
+Since this data has a time component, we might want to see how these 3 profiles change over time by plotting the mean versus time. The following code is courtesy of Lauren Brideau:
+
+```{r}
+cop_mean <- get_estimates(lpa_model) |> 
+  mutate(Class = as.factor(Class),
+         Wave = stringr::str_extract(Parameter, "w\\d+")) %>% 
+    filter(Category == "Means") 
+
+library(ggplot2)
+cop_mean %>% 
+  filter(Classes == 3) %>%  
+  ggplot(., aes(x = Wave, y = Estimate, group = Class)) +
+  geom_line() +
+  facet_wrap(vars(Class), labeller = "label_both") +
+  theme_bw()
+```
+
+We could also add standard error ribbons.
+
+```{r}
+cop_mean %>% 
+  filter(Classes == 3) %>%  
+  ggplot(., aes(x = Wave, y = Estimate, group = Class)) +
+  geom_line() +
+  geom_ribbon(mapping = aes(ymin = Estimate - se, ymax = Estimate + se), alpha = 1/4) +
+  facet_wrap(vars(Class), labeller = "label_both") +
+  theme_bw()
+```
+
+Use color and combine into one plot.
+
+```{r}
+cop_mean %>% 
+  filter(Classes == 3) %>%  
+  ggplot(., aes(x = Wave, y = Estimate, group = Class, 
+                fill = Class, color = Class)) +
+  geom_line() +
+  geom_ribbon(mapping = aes(ymin = Estimate - se, ymax = Estimate + se), alpha = 1/4) +
+  theme_minimal()
+
+```
+
+The grad student who contacted us for help was examining two dimensions: "coping" and "discrimination". She wanted to combine the profiles into two plots. Again, credit to Lauren for the data wrangling and plotting code.
+
+```{r message=FALSE}
+# fit the model for discrimination
+lpa_discrim <- data_complete %>%
+  select(w2DISCRIM, w3DISCRIM, w4DISCRIM, w5DISCRIM) %>%
+  estimate_profiles(n_profiles = 2:4, models = 1)
+# get means
+cop_mean <- get_estimates(lpa_model) %>% 
+  mutate(type = as.character("coping"))
+dis_mean <- get_estimates(lpa_discrim) %>% 
+  mutate(type = as.character("discrimination")) 
+#Join data and clean 
+cop.dis_mean <- bind_rows(cop_mean, dis_mean) %>% 
+  mutate(Parameter = as.factor(Parameter),
+         Class = as.factor(Class),
+         Wave = stringr::str_extract(Parameter, "w\\d+")) %>% 
+    #filter to just the mean values  
+  filter(Category == "Means") 
+# create the plot
+cop.dis_mean %>% filter(Classes == 3) %>%  
+  ggplot(., aes(x = Wave, y = Estimate, color = type)) +
+  geom_point(aes(shape = Class)) +
+  facet_wrap(vars(Class)) +
+  geom_line(aes(group = interaction(type, Class))) +
+  theme_bw()
+```
+
+## Miscellaneous
+
+The documentation for {tidyLPA} states there are only 4 models available when using {mclust}:
+
+- Equal variances and covariances fixed to 0
+- Varying variances and covariances fixed to 0
+- Equal variances and equal covariances
+- Varying variances and varying covariances
+
+These correspond to the following {mclust} models:
+
+- "EEI"
+- "VVI"
+- "EEE"
+- "VVV"
+
+The {mclust} package can fit 14 different models. It's not clear to me why {tidyLPA} is only limited to four of the models. 
+
+The `mclustBIC()` function allows us try all models and group sizes (or profiles) ranging from 1 - 9. For example:
+
+```{r message=FALSE}
+out_bic <- mclustBIC(data_complete[,c("w2cope", "w3cope", "w4cope", "w5cope")])
+summary(out_bic)
+```
+
+The "best" model is "VEI" with 6 profiles, a model that is not available in {tidyLPA}. We can then fit the model using `Mclust()`.
+
+```{r}
+mod <- Mclust(data_complete[,c("w2cope", "w3cope", "w4cope", "w5cope")], x = out_bic)
+summary(mod)
+```
+
+However, the classification plot has me wondering if maybe 3 or 4 groups would be better.
+
+```{r}
+plot(mod, what = "classification")
+```
+
+See also this [blog post](https://darrendahly.github.io/post/cluster/) on the dangers of falling in love with clustering.
+
+## References
+
+- Scrucca, et al., "mclust 5: Clustering, Classification and Density Estimation Using Gaussian Finite Mixture Models", The R Journal, 2016. <https://journal.r-project.org/articles/RJ-2016-021/>
+- Rosenberg, J. M., Beymer, P. N., Anderson, D. J., Van Lissa, C. J., & Schmidt, J.
+  A. (2018). tidyLPA: An R Package to Easily Carry Out Latent Profile Analysis (LPA)
+  Using Open-Source or Commercial Software. Journal of Open Source Software, 3(30),
+  978, https://doi.org/10.21105/joss.00978
+- Scrucca L, Fraley C, Murphy TB, Raftery AE (2023). _Model-Based Clustering,
+  Classification, and Density Estimation Using mclust in R_. Chapman and Hall/CRC.
+  ISBN 978-1032234953, doi:10.1201/9781003277965
+  <https://doi.org/10.1201/9781003277965>, <https://mclust-org.github.io/book/>.
+  
+## Session information
+
+```{r}
+sess <- sessionInfo()
+sess$R.version$version.string
+sess$platform
+packageVersion("tidyLPA")
+packageVersion("mclust")
+packageVersion("dplyr")
+packageVersion("haven")
+```
+
