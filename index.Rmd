@@ -12,6 +12,12 @@ knitr::opts_chunk$set(echo = TRUE)
 - [Extracting data from UpSet Plot](extract_data_upset_plot.html) (Clay Ford, 2025-04-10)     
 How to extract specific interactions from a data frame identified in an UpSet plot.
 
+- [Demo of Tukey HSD](tukey_hsd_demo.html) (Clay Ford, 2025-04-02)    
+Quick demo of how Tukey HSD corrects p-values for multiple comparisons.
+
+- [Understanding the log link in a Poisson model](glm_families_and_links.html) (Clay Ford, 2025-03-21)    
+Why we use the log link with Poisson models (i.e., `family = poisson(link = "log")`).
+
 - [Investigating Multicolinearity](investigating_multicollinearity.html) (Clay Ford, 2025-03-19)   
 Investigating multicolinearity and challenging idea of inspecting pairwise correlations before fitting a model and dropping highly correlated predictors.
 
@@ -20,6 +26,10 @@ Elaborating on the {ggeffects} vignette, [Difference Between Marginalization Met
 
 - [tidyLPA notes](tidyLPA.html) (Clay Ford and Lauren Brideau, 2024-11-01)    
 Notes on using the {tidyLPA} package and how it relates to the {mclust} package.
+
+- [Using polycor::hetcor](using_polycor_hetcor.html) (Clay Ford, 2024-09-27)      
+Demonstration of using the `hetcor()` function in the {polycor} package using simulated data.
+
 
 - [Polyserial and Polychoric Correlation](polychoric_and_polyserial_correlations.html) (Clay Ford, 2024-09-24)      
 An intro to polyserial and polychoric correlation using the {polycor} package. 
@@ -33,15 +43,28 @@ How to create and interpret Compact Letter Displays, though [some people don't l
 - [Forced One-way ANOVA](forced_oneway_anova.html) (Clay Ford, 2023-12-01)    
 Convert a two-way ANOVA into a one-way ANOVA.
 
+- [Recoding example](recoding_example.html) (Clay Ford, 2023-10-06)       
+Recoding example using a lookup table.
+
+
 - [Data wrangling consultation](consultation_summary_2023-08-28.html) (Clay Ford, 2023-08-28)     
 Data wrangling tasks: (1) drop any groups with less than 10 rows, (2) drop rows with runs of zeroes greater than or equal to 5.
 
 - [The stats::filter() function](stats_filter_function.html) (Clay Ford, 2022-10-12)      
 How to use the the base R `filter()` function to calculate moving averages.
 
+- [Logistic regression interactions](logistic_regression_interactions.html) (Clay Ford, 2022-09-19)      
+How to interpret and visualize 2-level categorical variable interactions in a logistic regression model.
+
+- [Nested Factorial Experiment](nested_anova.html) (Clay Ford, 2022-09-19)     
+Example of a Nested Factorial Experiment from _Statistical Models in S_.
+
+
 - [Three approaches to logistic regression in R](three_approaches_to_logistic_regression_in_R.html) (Clay Ford, 2022-07-18)    
 Demo of three ways to fit a logistic regression model in R. 
 
+- [Comparing a mediation analysis and with a t-test](mediation_analysis_ttest.html) (Clay Ford, 2022-05-25)       
+The difference in means from a t-test is the “Total Effect” in mediation analysis.
 
 - [Nomogram demo](nomogram_demo.html) (Clay Ford, 2022-03-31)     
 This demonstration is a modification of the example available on the `nomogram()` help page from the {rms} package. It demonstrates a nomogram for a logistic regression model using simulated data.

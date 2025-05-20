@@ -1,0 +1,64 @@
+---
+title: "Recoding example"
+author: "Clay Ford"
+date: "2023-10-06"
+format:
+  html:
+    embed-resources: true
+---
+
+I was asked to help with the following scenario.
+
+The patron had a list object similar to the following. Notice the y element has ID numbers in no particular order.
+
+```{r}
+#| code-fold: true
+#| code-summary: "Show code"
+
+y <- paste0("ID00000",101:200)
+set.seed(123)
+lst <- list(x = rnorm(100), y = sample(y))
+```
+
+```{r}
+lapply(lst, head)
+```
+
+
+They wanted to update the names in the y element according to a mapping that they had in a data frame. The mapping looked something like this.
+
+```{r}
+#| code-fold: true
+#| code-summary: "Show code"
+set.seed(321)
+new_y <- replicate(n = 100, paste(sample(letters, size = 4), collapse = ""))
+d <- data.frame(y = sort(lst$y), 
+                new_y)
+```
+
+```{r}
+head(d)
+```
+
+So in the list above where it has "ID00000101", they wanted to replace it with "vrmp". Here was my approach.
+
+First make the "y" column the row names of d:
+
+```{r}
+rownames(d) <- d$y
+head(d)
+```
+
+By adding row names to the data frame we have created a _lookup table_. Use the elements in `lst$y` as row names to lookup the "y_new" value in `d`. This returns a vector. 
+
+```{r}
+d[lst$y,"new_y"]
+```
+
+We can then assign the vector into the list object and replace the "ID00000xxx" values with the desired 4-letter names.
+
+```{r}
+lst$y <- d[lst$y,"new_y"]
+lapply(lst, head)
+```
+

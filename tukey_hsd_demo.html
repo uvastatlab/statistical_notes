@@ -9,9 +9,11 @@
 <meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
 
 
+<meta name="author" content="Clay Ford" />
 
+<meta name="date" content="2025-04-02" />
 
-<title>UVA StatLab Statistical Notes</title>
+<title>Tukey HSD</title>
 
 <script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
 // be compatible with the behavior of Pandoc < 2.8).
@@ -348,105 +350,75 @@ display: none;
 
 
 
-<h1 class="title toc-ignore">UVA StatLab Statistical Notes</h1>
+<h1 class="title toc-ignore">Tukey HSD</h1>
+<h4 class="author">Clay Ford</h4>
+<h4 class="date">2025-04-02</h4>
 
 </div>
 
 
-<div id="reports-generated-for-various-consultations-for-the-uva-statlab." class="section level3">
-<h3>Reports generated for various consultations for the UVA
-StatLab.</h3>
-<ul>
-<li><p><a href="extract_data_upset_plot.html">Extracting data from UpSet
-Plot</a> (Clay Ford, 2025-04-10)<br />
-How to extract specific interactions from a data frame identified in an
-UpSet plot.</p></li>
-<li><p><a href="tukey_hsd_demo.html">Demo of Tukey HSD</a> (Clay Ford,
-2025-04-02)<br />
-Quick demo of how Tukey HSD corrects p-values for multiple
-comparisons.</p></li>
-<li><p><a href="glm_families_and_links.html">Understanding the log link
-in a Poisson model</a> (Clay Ford, 2025-03-21)<br />
-Why we use the log link with Poisson models (i.e.,
-<code>family = poisson(link = &quot;log&quot;)</code>).</p></li>
-<li><p><a href="investigating_multicollinearity.html">Investigating
-Multicolinearity</a> (Clay Ford, 2025-03-19)<br />
-Investigating multicolinearity and challenging idea of inspecting
-pairwise correlations before fitting a model and dropping highly
-correlated predictors.</p></li>
-<li><p><a href="ggeffects_margin_argument.html">Understanding the
-{ggeffects} predict_response() margin argument</a> (Clay Ford,
-2025-01-10)<br />
-Elaborating on the {ggeffects} vignette, <a href="https://strengejacke.github.io/ggeffects/articles/technical_differencepredictemmeans.html">Difference
-Between Marginalization Methods: The margin Argument</a>.</p></li>
-<li><p><a href="tidyLPA.html">tidyLPA notes</a> (Clay Ford and Lauren
-Brideau, 2024-11-01)<br />
-Notes on using the {tidyLPA} package and how it relates to the {mclust}
-package.</p></li>
-<li><p><a href="polychoric_and_polyserial_correlations.html">Polyserial
-and Polychoric Correlation</a> (Clay Ford, 2024-09-24)<br />
-An intro to polyserial and polychoric correlation using the {polycor}
-package.</p></li>
-<li><p><a href="term_plots.html">Demo of Term plots</a> (Clay Ford,
-2024-06-25)<br />
-Demonstration of using term plots to detect departures from linearity
-for coefficients. Shows the base R <code>termplot()</code> and
-<code>car::crPlots()</code> functions.</p></li>
-<li><p><a href="cld.html">Compact Letter Displays</a> (Clay Ford,
-2024-03-24)<br />
-How to create and interpret Compact Letter Displays, though <a href="https://stats.stackexchange.com/questions/275832/interpreting-compact-letter-displays-and-tukey-multiple-comparisons-from-glmm#comment829280_275832">some
-people don’t like them</a>.</p></li>
-<li><p><a href="forced_oneway_anova.html">Forced One-way ANOVA</a> (Clay
-Ford, 2023-12-01)<br />
-Convert a two-way ANOVA into a one-way ANOVA.</p></li>
-<li><p><a href="recoding_example.html">Recoding example</a> (Clay Ford,
-2023-10-06)<br />
-Recoding example using a lookup table.</p></li>
-<li><p><a href="consultation_summary_2023-08-28.html">Data wrangling
-consultation</a> (Clay Ford, 2023-08-28)<br />
-Data wrangling tasks: (1) drop any groups with less than 10 rows, (2)
-drop rows with runs of zeroes greater than or equal to 5.</p></li>
-<li><p><a href="stats_filter_function.html">The stats::filter()
-function</a> (Clay Ford, 2022-10-12)<br />
-How to use the the base R <code>filter()</code> function to calculate
-moving averages.</p></li>
-<li><p><a href="logistic_regression_interactions.html">Logistic
-regression interactions</a> (Clay Ford, 2022-09-19)<br />
-How to interpret and visualize 2-level categorical variable interactions
-in a logistic regression model.</p></li>
-<li><p><a href="nested_anova.html">Nested Factorial Experiment</a> (Clay
-Ford, 2022-09-19)<br />
-Example of a Nested Factorial Experiment from <em>Statistical Models in
-S</em>.</p></li>
-<li><p><a href="three_approaches_to_logistic_regression_in_R.html">Three
-approaches to logistic regression in R</a> (Clay Ford, 2022-07-18)<br />
-Demo of three ways to fit a logistic regression model in R.</p></li>
-<li><p><a href="mediation_analysis_ttest.html">Comparing a mediation
-analysis and with a t-test</a> (Clay Ford, 2022-05-25)<br />
-The difference in means from a t-test is the “Total Effect” in mediation
-analysis.</p></li>
-<li><p><a href="nomogram_demo.html">Nomogram demo</a> (Clay Ford,
-2022-03-31)<br />
-This demonstration is a modification of the example available on the
-<code>nomogram()</code> help page from the {rms} package. It
-demonstrates a nomogram for a logistic regression model using simulated
-data.</p></li>
-<li><p><a href="glmm.html">Demo of Generalized Linear Mixed Model</a>
-(Clay Ford, 2021-02-12)<br />
-A demonstration of binomial GLMM using simulated data.</p></li>
-<li><p><a href="cramers_v.html">CIs for Cramer’s V</a> (Clay Ford,
-2021-01-20)<br />
-Demo of calculating CIs for Cramer’s V for a small sample.</p></li>
-<li><p><a href="normality_is_for_residuals.html">Normality is for
-Residuals</a> (Clay Ford, 2020-11-02)<br />
-The normality assumption in linear modeling (multiple regression) is on
-the residuals, not the dependent or independent variables.</p></li>
-<li><p><a href="stepwise_simulation.html">Stepwise Model Selection
-performing poorly</a> (Clay Ford, 2020-09-01)<br />
-Demo of stepwise model selection performing poorly in the presence of
-collinearity. <a href="https://discourse.datamethods.org/t/reference-collection-to-push-back-against-common-statistical-myths/1787#p-4596-stepwise-variable-selection-dont-do-it-7">Stepwise
-selection should be avoided anyway</a>.</p></li>
-</ul>
+<div id="simulate-data" class="section level2">
+<h2>Simulate data</h2>
+<p>Simulate three groups of data by sampling from three normal
+distributions with the same standard deviation (1) but different means.
+The <code>set.seed(123)</code> line makes this data reproducible.</p>
+<pre class="r"><code>set.seed(123)
+a &lt;- rnorm(n = 20, mean = 3, sd = 1)
+b &lt;- rnorm(n = 20, mean = 3.5, sd = 1)
+c &lt;- rnorm(n = 20, mean = 4, sd = 1)
+d &lt;- data.frame(grp = rep(c(&quot;a&quot;, &quot;b&quot;, &quot;c&quot;), each = 20),
+                y = c(a, b, c))</code></pre>
+<p>Calculate the means for each group:</p>
+<pre class="r"><code>means &lt;- aggregate(y ~ grp, data = d, mean)
+means</code></pre>
+<pre><code>##   grp        y
+## 1   a 3.141624
+## 2   b 3.448743
+## 3   c 4.106485</code></pre>
+<p>Calculate difference in means:</p>
+<pre class="r"><code>ba &lt;- means$y[means$grp == &quot;b&quot;] - means$y[means$grp == &quot;a&quot;]
+ca &lt;- means$y[means$grp == &quot;c&quot;] - means$y[means$grp == &quot;a&quot;]
+cb &lt;- means$y[means$grp == &quot;c&quot;] - means$y[means$grp == &quot;b&quot;]
+results &lt;- data.frame(comparison = c(&quot;b-a&quot;, &quot;c-a&quot;, &quot;c-b&quot;), 
+           diff = c(ba, ca, cb))
+results</code></pre>
+<pre><code>##   comparison      diff
+## 1        b-a 0.3071190
+## 2        c-a 0.9648614
+## 3        c-b 0.6577424</code></pre>
+</div>
+<div id="t-tests" class="section level2">
+<h2>T-tests</h2>
+<p>Run t-tests for all three comparisons:</p>
+<pre class="r"><code>ba &lt;- t.test(y ~ grp, data = d, subset = grp != &quot;c&quot;)
+ca &lt;- t.test(y ~ grp, data = d, subset = grp != &quot;b&quot;)
+cb &lt;- t.test(y ~ grp, data = d, subset = grp != &quot;a&quot;)</code></pre>
+<p>Put p-values in a table:</p>
+<pre class="r"><code>results$pvalue &lt;- c(ba$p.value, ca$p.value, cb$p.value)
+results</code></pre>
+<pre><code>##   comparison      diff      pvalue
+## 1        b-a 0.3071190 0.289679919
+## 2        c-a 0.9648614 0.003078154
+## 3        c-b 0.6577424 0.025826189</code></pre>
+<p>Notice two are “significant” at the 0.05 level.</p>
+</div>
+<div id="anova-and-tukeys-hsd" class="section level2">
+<h2>ANOVA and Tukey’s HSD</h2>
+<p>Now analyzing using a one-way ANOVA and conduct pairwise comparisons
+using Tukey’s HSD. Notice all p-values are higher than their t-test
+counterparts and only one is “significant” at 0.05 level.</p>
+<pre class="r"><code>m &lt;- aov(y ~ grp, data = d)
+TukeyHSD(m)</code></pre>
+<pre><code>##   Tukey multiple comparisons of means
+##     95% family-wise confidence level
+## 
+## Fit: aov(formula = y ~ grp, data = d)
+## 
+## $grp
+##          diff         lwr      upr     p adj
+## b-a 0.3071190 -0.39465579 1.008894 0.5468419
+## c-a 0.9648614  0.26308661 1.666636 0.0045735
+## c-b 0.6577424 -0.04403243 1.359517 0.0705975</code></pre>
 </div>
 
 

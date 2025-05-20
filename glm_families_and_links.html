@@ -9,9 +9,11 @@
 <meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
 
 
+<meta name="author" content="Clay Ford" />
 
+<meta name="date" content="2025-03-21" />
 
-<title>UVA StatLab Statistical Notes</title>
+<title>Understanding the log link in a Poisson model</title>
 
 <script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
 // be compatible with the behavior of Pandoc < 2.8).
@@ -348,105 +350,257 @@ display: none;
 
 
 
-<h1 class="title toc-ignore">UVA StatLab Statistical Notes</h1>
+<h1 class="title toc-ignore">Understanding the log link in a Poisson
+model</h1>
+<h4 class="author">Clay Ford</h4>
+<h4 class="date">2025-03-21</h4>
 
 </div>
 
 
-<div id="reports-generated-for-various-consultations-for-the-uva-statlab." class="section level3">
-<h3>Reports generated for various consultations for the UVA
-StatLab.</h3>
-<ul>
-<li><p><a href="extract_data_upset_plot.html">Extracting data from UpSet
-Plot</a> (Clay Ford, 2025-04-10)<br />
-How to extract specific interactions from a data frame identified in an
-UpSet plot.</p></li>
-<li><p><a href="tukey_hsd_demo.html">Demo of Tukey HSD</a> (Clay Ford,
-2025-04-02)<br />
-Quick demo of how Tukey HSD corrects p-values for multiple
-comparisons.</p></li>
-<li><p><a href="glm_families_and_links.html">Understanding the log link
-in a Poisson model</a> (Clay Ford, 2025-03-21)<br />
-Why we use the log link with Poisson models (i.e.,
-<code>family = poisson(link = &quot;log&quot;)</code>).</p></li>
-<li><p><a href="investigating_multicollinearity.html">Investigating
-Multicolinearity</a> (Clay Ford, 2025-03-19)<br />
-Investigating multicolinearity and challenging idea of inspecting
-pairwise correlations before fitting a model and dropping highly
-correlated predictors.</p></li>
-<li><p><a href="ggeffects_margin_argument.html">Understanding the
-{ggeffects} predict_response() margin argument</a> (Clay Ford,
-2025-01-10)<br />
-Elaborating on the {ggeffects} vignette, <a href="https://strengejacke.github.io/ggeffects/articles/technical_differencepredictemmeans.html">Difference
-Between Marginalization Methods: The margin Argument</a>.</p></li>
-<li><p><a href="tidyLPA.html">tidyLPA notes</a> (Clay Ford and Lauren
-Brideau, 2024-11-01)<br />
-Notes on using the {tidyLPA} package and how it relates to the {mclust}
-package.</p></li>
-<li><p><a href="polychoric_and_polyserial_correlations.html">Polyserial
-and Polychoric Correlation</a> (Clay Ford, 2024-09-24)<br />
-An intro to polyserial and polychoric correlation using the {polycor}
-package.</p></li>
-<li><p><a href="term_plots.html">Demo of Term plots</a> (Clay Ford,
-2024-06-25)<br />
-Demonstration of using term plots to detect departures from linearity
-for coefficients. Shows the base R <code>termplot()</code> and
-<code>car::crPlots()</code> functions.</p></li>
-<li><p><a href="cld.html">Compact Letter Displays</a> (Clay Ford,
-2024-03-24)<br />
-How to create and interpret Compact Letter Displays, though <a href="https://stats.stackexchange.com/questions/275832/interpreting-compact-letter-displays-and-tukey-multiple-comparisons-from-glmm#comment829280_275832">some
-people don’t like them</a>.</p></li>
-<li><p><a href="forced_oneway_anova.html">Forced One-way ANOVA</a> (Clay
-Ford, 2023-12-01)<br />
-Convert a two-way ANOVA into a one-way ANOVA.</p></li>
-<li><p><a href="recoding_example.html">Recoding example</a> (Clay Ford,
-2023-10-06)<br />
-Recoding example using a lookup table.</p></li>
-<li><p><a href="consultation_summary_2023-08-28.html">Data wrangling
-consultation</a> (Clay Ford, 2023-08-28)<br />
-Data wrangling tasks: (1) drop any groups with less than 10 rows, (2)
-drop rows with runs of zeroes greater than or equal to 5.</p></li>
-<li><p><a href="stats_filter_function.html">The stats::filter()
-function</a> (Clay Ford, 2022-10-12)<br />
-How to use the the base R <code>filter()</code> function to calculate
-moving averages.</p></li>
-<li><p><a href="logistic_regression_interactions.html">Logistic
-regression interactions</a> (Clay Ford, 2022-09-19)<br />
-How to interpret and visualize 2-level categorical variable interactions
-in a logistic regression model.</p></li>
-<li><p><a href="nested_anova.html">Nested Factorial Experiment</a> (Clay
-Ford, 2022-09-19)<br />
-Example of a Nested Factorial Experiment from <em>Statistical Models in
-S</em>.</p></li>
-<li><p><a href="three_approaches_to_logistic_regression_in_R.html">Three
-approaches to logistic regression in R</a> (Clay Ford, 2022-07-18)<br />
-Demo of three ways to fit a logistic regression model in R.</p></li>
-<li><p><a href="mediation_analysis_ttest.html">Comparing a mediation
-analysis and with a t-test</a> (Clay Ford, 2022-05-25)<br />
-The difference in means from a t-test is the “Total Effect” in mediation
-analysis.</p></li>
-<li><p><a href="nomogram_demo.html">Nomogram demo</a> (Clay Ford,
-2022-03-31)<br />
-This demonstration is a modification of the example available on the
-<code>nomogram()</code> help page from the {rms} package. It
-demonstrates a nomogram for a logistic regression model using simulated
-data.</p></li>
-<li><p><a href="glmm.html">Demo of Generalized Linear Mixed Model</a>
-(Clay Ford, 2021-02-12)<br />
-A demonstration of binomial GLMM using simulated data.</p></li>
-<li><p><a href="cramers_v.html">CIs for Cramer’s V</a> (Clay Ford,
-2021-01-20)<br />
-Demo of calculating CIs for Cramer’s V for a small sample.</p></li>
-<li><p><a href="normality_is_for_residuals.html">Normality is for
-Residuals</a> (Clay Ford, 2020-11-02)<br />
-The normality assumption in linear modeling (multiple regression) is on
-the residuals, not the dependent or independent variables.</p></li>
-<li><p><a href="stepwise_simulation.html">Stepwise Model Selection
-performing poorly</a> (Clay Ford, 2020-09-01)<br />
-Demo of stepwise model selection performing poorly in the presence of
-collinearity. <a href="https://discourse.datamethods.org/t/reference-collection-to-push-back-against-common-statistical-myths/1787#p-4596-stepwise-variable-selection-dont-do-it-7">Stepwise
-selection should be avoided anyway</a>.</p></li>
-</ul>
+<p>A linear model allows us to calculate <em>conditional</em> means. For
+example, a model to estimate the mean number of visits to the health
+clinic for two dorms at a university might be</p>
+<p><span class="math display">\[
+\text{visits} = 0.9 + 2.2x
+\]</span></p>
+<p>where <span class="math inline">\(x = 0\)</span> for dorm 1 and <span class="math inline">\(x = 1\)</span> for dorm 2. In other words, the
+mean number of visits to the health clinic for students in dorm 1 is
+0.9, and the mean number of visits to the health clinic for students in
+dorm 2 is 0.9 + 2.2 = 3.1.</p>
+<p>This model will not always be right. It’s just an approximation. It
+will be off by some amount. This amount is usually called the
+<em>error</em>, symbolized with <span class="math inline">\(\epsilon\)</span>.</p>
+<p><span class="math display">\[
+\text{visits} = 0.9 + 2.2x + \epsilon
+\]</span></p>
+<p>We assume the error is a random draw from a probability distribution.
+The probability distribution for a basic linear model, also known as the
+ordinary least squares (OLS) model, is the <em>normal</em> distribution.
+The normal distribution has two parameters: the mean and standard
+deviation. For a linear model we assume the mean is 0 and we estimate
+the standard deviation. This is reported as <em>residual standard
+error</em> in model output.</p>
+<p>Here’s what the linear model looks like when we fit it in R:</p>
+<pre class="r"><code>m &lt;- lm(visits ~ x, data = d)
+summary(m)</code></pre>
+<pre><code>
+Call:
+lm(formula = visits ~ x, data = d)
+
+Residuals:
+   Min     1Q Median     3Q    Max 
+  -2.1   -1.1    0.1    0.9    3.9 
+
+Coefficients:
+            Estimate Std. Error t value Pr(&gt;|t|)    
+(Intercept)   0.9000     0.2896   3.108  0.00316 ** 
+x             2.2000     0.3738   5.885 3.76e-07 ***
+---
+Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+
+Residual standard error: 1.295 on 48 degrees of freedom
+Multiple R-squared:  0.4191,    Adjusted R-squared:  0.407 
+F-statistic: 34.63 on 1 and 48 DF,  p-value: 3.757e-07</code></pre>
+<p>The intercept is the expected mean visits for dorm 1. The x
+coefficient is the <em>difference</em> in mean visits between dorm 2 and
+dorm 1. The standard deviation of the normal distribution from which the
+error is sampled is estimated to be 1.295.</p>
+<p>Because the error is normally distributed, this implies <em>the
+estimated means are also normally distributed</em>. We can state this
+mathematically as</p>
+<p><span class="math display">\[
+\text{dorm 1 count} \sim N(0.9, 1.295)
+\]</span> <span class="math display">\[
+\text{dorm 2 count} \sim N(0.9 + 2.2, 1.295)
+\]</span></p>
+<p>We can use this model to estimate the expected number of visits to
+the health clinic for 10 incoming students to dorm 1 where the expected
+number of visits is 0.9. We do this by sampling from a normal
+distribution with mean 0.9 and standard deviation 1.295. We can do the
+sampling in R using the <code>rnorm()</code> function.</p>
+<pre class="r"><code>rnorm(n = 10, mean = 0.9, sd = 1.295)</code></pre>
+<pre><code> [1]  0.08874232  1.13781810 -0.18213905  2.96588864  1.32671256 -0.16250656
+ [7]  1.53122062  1.85613049  1.64563685  0.50452204</code></pre>
+<p>These expected values are bizarre. For one, they all have decimals. A
+student won’t have 0.08874232 visits to the health clinic. They will
+have zero or more visits. Another problem is that two of the values are
+<em>negative</em>. That certainly doesn’t make any sense. But the normal
+distribution doesn’t know this. It works for <em>any range of
+numbers</em> with any level of precision. It has no lower or upper
+bound. Therefore we would like to consider another probability
+distribution for this model.</p>
+<div id="the-generalized-linear-model" class="section level2">
+<h2>The generalized linear model</h2>
+<p>Basic linear models assume a normal distribution for the conditional
+means. There is no option to change the distribution in the
+<code>lm()</code> function. If we want to consider alternative
+distributions, we need to use <em>generalized linear models</em>. We can
+do this in R with the <code>glm()</code> function.</p>
+<p>One distribution we might like to consider for our example above is
+the <em>Poisson distribution</em>. The Poisson distribution has one
+parameter, a mean. This is usually symbolized with <span class="math inline">\(\lambda\)</span>. Draws from this distribution are
+whole numbers that are greater than or equal to 0. We specify this
+distribution in the <code>glm()</code> function using the
+<code>family</code> argument.</p>
+<pre class="r"><code>m2 &lt;- glm(visits ~ x, data = d, family = poisson)
+summary(m2)</code></pre>
+<pre><code>
+Call:
+glm(formula = visits ~ x, family = poisson, data = d)
+
+Coefficients:
+            Estimate Std. Error z value Pr(&gt;|z|)    
+(Intercept)  -0.1054     0.2357  -0.447    0.655    
+x             1.2368     0.2575   4.803 1.56e-06 ***
+---
+Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+
+(Dispersion parameter for poisson family taken to be 1)
+
+    Null deviance: 67.018  on 49  degrees of freedom
+Residual deviance: 37.416  on 48  degrees of freedom
+AIC: 159.08
+
+Number of Fisher Scoring iterations: 5</code></pre>
+<p>This implies the estimated means are Poisson distributed. We might
+state this mathematically as</p>
+<p><span class="math display">\[
+\text{dorm 1 count} \sim \text{Poisson}(-0.1054)
+\]</span></p>
+<p><span class="math display">\[
+\text{dorm 2 count} \sim \text{Poisson}(-0.1054 + 1.2368)
+\]</span></p>
+<p>But this would be wrong! You may have already been suspicious of the
+negative intercept, -0.1054, which is the estimated mean number of
+visits to the health clinic for students in dorm 1. That doesn’t make
+sense. In fact, if we use this value to draw random samples from a
+Poisson distribution we get a warning and missing values.</p>
+<pre class="r"><code>rpois(n = 10, lambda = -0.1054)</code></pre>
+<pre><code>Warning in rpois(n = 10, lambda = -0.1054): NAs produced</code></pre>
+<pre><code> [1] NA NA NA NA NA NA NA NA NA NA</code></pre>
+<p>What’s going on? It turns out we need to <em>exponentiate</em> the
+model to get the conditional means.</p>
+<p><span class="math display">\[
+\text{dorm 1 count} \sim \text{Poisson}(e^{-0.1054})
+\]</span></p>
+<p><span class="math display">\[
+\text{dorm 2 count} \sim \text{Poisson}(e^{-0.1054 + 1.2368})
+\]</span></p>
+<p>Using the <code>exp()</code> function, we can now get estimated
+counts for the next 10 students in dorm 1:</p>
+<pre class="r"><code>rpois(n = 10, lambda = exp(-0.1054))</code></pre>
+<pre><code> [1] 2 0 1 0 0 0 0 0 2 0</code></pre>
+<p>Why do we have to exponentiate? Because exponentiating ensures the
+estimated means are <em>positive</em>. This allows our model, called the
+<em>linear predictor</em>, to take any range of values, positive or
+negative. No matter the estimated model, we’ll always get positive means
+once we exponentiate.</p>
+<p>But why didn’t R just do that for us and report the exponentiated
+coefficients in the output? Because the <em>estimated mean</em> has to
+be exponentiated, not the individual coefficients. We don’t exponentiate
+1.2368. We exponentiate -0.1054 + 1.2368. We <em>can</em> exponentiate
+1.2368, but that doesn’t return an estimated mean. It returns a
+multiplicative effect.</p>
+<pre class="r"><code>exp(1.2358)</code></pre>
+<pre><code>[1] 3.44113</code></pre>
+<p>This says the counts for dorm 2 are expected to be about 3.4 times
+higher than the counts for dorm 1.</p>
+<p>Now we can express our model as a single probability expression:</p>
+<p><span class="math display">\[
+\text{visits} \sim \text{Poisson}(e^{-0.1054 + 1.2368x})
+\]</span></p>
+<p>The model, or linear predictor, is <span class="math inline">\(-0.1054 + 1.2368x\)</span>. To extract the model,
+we have to take the log of the expression. The log is the inverse of
+exponentiation.</p>
+<p><span class="math display">\[
+\text{log}(e^{x}) = x
+\]</span></p>
+<p>Because the log transformation allows us to extract the linear model,
+we call the log the <em>“link”</em> to our model. The log is the default
+link for the <code>poisson()</code> function in R. We can explicitly
+state this when we fit a Poisson model as follows:</p>
+<pre class="r"><code>m2 &lt;- glm(visits ~ x, data = d, family = poisson(link = &quot;log&quot;))</code></pre>
+</div>
+<div id="simulating-data-for-a-poisson-model" class="section level2">
+<h2>Simulating data for a Poisson model</h2>
+<p>The data for the example above was simulated using the
+<code>rpois()</code> function. Notice the <em>true</em> linear model is
+<span class="math inline">\(0.2 + 0.8x\)</span>. Also notice the
+<code>exp()</code> function exponentiates the model.</p>
+<pre class="r"><code>RNGversion(&quot;4.4.3&quot;)
+set.seed(12) # make reproducible
+x &lt;- sample(0:1, size = 50, replace = TRUE)
+visits &lt;- rpois(n = 50, lambda = exp(0.2 + 0.8*x))
+d &lt;- data.frame(visits, x)</code></pre>
+<p>The link to the model is the log transformation:</p>
+<p><span class="math display">\[
+\text{log}(e^{0.2 + 0.8x}) = 0.2 + 0.8x
+\]</span></p>
+<p>Two other links for the poisson family are the “identity” and “sqrt”
+(square root) links. The identity link simply means there is no
+transformation. We can simulate data appropriate for an identity link by
+not using the <code>exp()</code> function. Notice the estimated
+coefficients are close to the true values. (We use a larger sample size
+to help the model come closer to estimating the true coefficients of the
+linear model.)</p>
+<pre class="r"><code>set.seed(13)
+n &lt;- 1000
+x &lt;- sample(0:1, size = n, replace = TRUE)
+visits &lt;- rpois(n = n, lambda = 0.2 + 0.8*x)
+d &lt;- data.frame(visits, x)
+m_i &lt;- glm(visits ~ x, data = d, family = poisson(link = &quot;identity&quot;))
+summary(m_i)</code></pre>
+<pre><code>
+Call:
+glm(formula = visits ~ x, family = poisson(link = &quot;identity&quot;), 
+    data = d)
+
+Coefficients:
+            Estimate Std. Error z value Pr(&gt;|z|)    
+(Intercept)  0.17624    0.01868   9.434   &lt;2e-16 ***
+x            0.89447    0.05012  17.847   &lt;2e-16 ***
+---
+Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+
+(Dispersion parameter for poisson family taken to be 1)
+
+    Null deviance: 1247.50  on 999  degrees of freedom
+Residual deviance:  890.27  on 998  degrees of freedom
+AIC: 1827.5
+
+Number of Fisher Scoring iterations: 3</code></pre>
+<p>We can simulate data appropriate for a square root link by
+<em>squaring</em> the model. That’s because the square root is the
+inverse of the square.</p>
+<p><span class="math display">\[
+\sqrt{(0.2 + 0.8x)^2} = 0.2 + 0.8x
+\]</span></p>
+<pre class="r"><code>set.seed(14)
+x &lt;- sample(0:1, size = n, replace = TRUE)
+visits &lt;- rpois(n = n, lambda = (0.2 + 0.8*x)^2) # square the model
+d &lt;- data.frame(visits, x)
+m_s &lt;- glm(visits ~ x, data = d, family = poisson(link = &quot;sqrt&quot;))
+summary(m_s)</code></pre>
+<pre><code>
+Call:
+glm(formula = visits ~ x, family = poisson(link = &quot;sqrt&quot;), data = d)
+
+Coefficients:
+            Estimate Std. Error z value Pr(&gt;|z|)    
+(Intercept)  0.20135    0.02197   9.165   &lt;2e-16 ***
+x            0.80897    0.03164  25.565   &lt;2e-16 ***
+---
+Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+
+(Dispersion parameter for poisson family taken to be 1)
+
+    Null deviance: 1279.45  on 999  degrees of freedom
+Residual deviance:  709.04  on 998  degrees of freedom
+AIC: 1463.6
+
+Number of Fisher Scoring iterations: 5</code></pre>
+<p><br><br><br><br><br></p>
 </div>
 
 

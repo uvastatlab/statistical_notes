@@ -1,0 +1,91 @@
+---
+title: "Logistic regression interactions"
+author: "Clay Ford"
+date: "2022-09-19"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r echo=FALSE}
+# simulate data
+n <- 600
+set.seed(1)
+x1 <- factor(sample(0:1, size = n, replace = TRUE))
+x2 <- factor(sample(0:1, size = n, replace = TRUE))
+lp <- -0.2 + 0.6*(x1 == "1") + -0.6*(x2 == "1") + 2.1*(x1 == "1")*(x2 == "1")
+p <- plogis(lp)
+y <- rbinom(n, size = 1, prob = p)
+d <- data.frame(y, x1, x2)
+```
+
+Let's fit a binary logistic regression model with an interaction. The predictors, `x1` and `x2` are both 2-level categorical variables. Notice the interaction, `x1:x2`, is highly significant.
+
+```{r}
+m <- glm(y ~ x1 + x2 + x1:x2, data = d, family = binomial)
+summary(m)
+```
+
+How can we better understand this interaction?
+
+One way is **effect displays**. This is basically predicted probabilities at specific levels. Notice in the effect display below that the effect of `x1` changes depending on the level of `x2`. The effect of `x1` is much greater when `x2 = 1` (the blue line). The effect of `x1` is not as pronounced when `x2 = 0`. This is a textbook example of an interaction. What's the effect of `x1`? It depends on `x2`.
+
+The predicted probability of `y` is much higher when `x1 == 1` and `x2 == 1`. Also, the effect of `x2` appears to reverse when `x1 = 0`. Notice how red is higher than blue when `x1 = 0`, but blue is higher than red when `x2 = 1`.
+
+```{r echo=FALSE, message=FALSE}
+library(ggeffects)
+plot(ggpredict(m, terms = c("x1", "x2")), connect.lines = TRUE)
+```
+
+Another way to understand interactions is to compute **differences in estimated probabilities** using the model. Below we estimate probabilities for `y` at the two levels of `x2`, conditional on `x1`. You'll notice these are the probabilities that are plotted above. The `contrasts` section shows the difference in estimated probabilities for `x2` at each level of `x1`. When `x1 = 0`, the estimated difference in probabilities between each level of `x2` is not significant at the 0.05 level. However when `x1 = 1`, the estimated difference of 0.3063 between the two levels of `x2` is significant.
+
+```{r echo=FALSE}
+library(emmeans)
+emmeans(m, revpairwise ~ x2 | x1, regrid = "response")
+```
+
+Confidence intervals give a more complete picture. When `x1 = 1`, the estimated difference in probabilities between the levels of `x2` is about (0.2, 0.4).
+
+```{r echo=FALSE}
+emmeans(m, revpairwise ~ x2 | x1, regrid = "response") |> 
+  confint()
+```
+
+Finally a more traditional way to understand interactions is to use odds ratios. I find these more difficult to explain and understand. 
+
+When `x1 = 0` the model coefficients simplify as follows:
+
+$$y = -0.365 + 0.604(0) + -0.430\text{x2} + 2.055(0)x2$$ 
+
+$$y = -0.365 + -0.430\text{x2}$$ 
+
+Exponentiating the coefficient for `x2` gives an odds ratio.
+
+```{r}
+exp(-0.4304)
+```
+
+When `x2 = 1` and `x1 = 0`, the odds that `y = 1` is about (1 - 0.65 = 0.35) 35% less than the odds that `y = 1` when `x2 = 0` and `x1 = 1`.
+
+When `x1 = 1` the model coefficients simplify as follows:
+
+$$y = -0.365 + 0.604(1) + -0.430\text{x2} + 2.055(1)x2$$ 
+
+$$y = 0.238 + 1.625\text{x2}$$ 
+
+Exponentiating the coefficient for `x2` gives an odds ratio.
+
+```{r}
+exp(1.625)
+```
+
+When `x2 = 1` and `x1 = 1`, the odds that `y = 1` is about 5 times higher than the odds that `y = 1` when `x2 = 0` and `x1 = 1`.
+
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>

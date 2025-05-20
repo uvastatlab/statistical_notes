@@ -1,0 +1,76 @@
+---
+title: "Nested Factorial Experiment"
+author: "Clay Ford"
+date: "2022-09-19"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Enter data
+
+The following example comes from the book _Statistical Models in S_ (Chambers and Hastie, 1992). Unfortunately I had to enter the data by hand because I couldn't find an electronic version.
+
+```{r}
+Method <- factor(rep(c("I", "I", "II", "II"), 9))
+Physique <- factor(rep(c("slight", "average", "heavy"), each = 12),
+                   levels = c("slight", "average", "heavy"))
+Team <- factor(rep(1:9, each = 4))
+guns <- data.frame(Method, Physique, Team)
+guns$Rounds <- c(20.2, 24.1, 14.2, 16.2,
+                 26.2, 26.9, 18.0, 19.1,
+                 23.8, 24.9, 12.5, 15.4,
+                 22.0, 23.5, 14.1, 16.1,
+                 22.6, 24.6, 14.0, 18.1,
+                 22.9, 25.0, 13.7, 16.0,
+                 23.1, 22.9, 14.1, 16.1, 
+                 22.9, 23.7, 12.2, 13.8, 
+                 21.8, 23.5, 12.7, 15.1)
+```
+
+## About the data
+
+The data come from another book called _Fundamental Concepts in the Design of Experiments_ (Hicks and Turner, 1991). It's based on an experiment about firing naval guns. Two different reloading methods were tested by gunners corresponding to three different Physiques (slight, average, heavy). Three teams were randomly chosen to represent each of the three physique groupings. Each team was then tested twice using each method for a total of 36 trials. The response was the number of rounds fired per minute.
+
+```{r}
+summary(guns)
+```
+
+Notice how Team is nested within Physique in the plot below. **The Team variable is only meaningful within each Physique**.
+
+```{r}
+library(ggplot2)
+ggplot(guns) +
+  aes(x = Team, y = Rounds, color = Method) +
+  geom_point() +
+  facet_wrap(~ Physique, labeller = "label_both", scales = "free_x") +
+  labs(title = "Team is nested within Physique")
+```
+
+Therefore we _nest_ Team within Physique when we perform the ANOVA:
+
+```{r}
+m <- aov(Rounds ~ Method + Physique/Team, guns)
+summary(m)
+```
+
+Most of the variability in Rounds is due to Method. Notice the huge Sum Sq value. Method I seems to be far superior to Method II. We might follow up the ANOVA with a comparison between Methods. It appears Method I produces about 8 more rounds on average. 
+
+```{r}
+TukeyHSD(m, which = "Method")
+```
+
+We might also want to compare Physique. There appears to be a significant difference between Heavy and Slight physiques, where slight performed _better_. But that's probably due to Team 2 who seemed to perform exceptionally well. 
+
+```{r}
+TukeyHSD(m, which = "Physique")
+```
+
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>

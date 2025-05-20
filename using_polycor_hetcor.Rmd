@@ -1,0 +1,76 @@
+---
+title: "Using polycor::hetcor"
+author: "Clay Ford"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Demonstration of using the `hetcor()` function in the {polycor} package using simulated data. From the help page: "hetcor computes a heterogenous correlation matrix, consisting of Pearson product-moment correlations between numeric variables, polyserial correlations between numeric and ordinal variables, and polychoric correlations between ordinal variables."
+
+Load some packages.
+
+```{r message=FALSE}
+library(lavaan) # for getCov() function
+library(mvtnorm) # for generating multivariate data
+library(scales) # for rescale() function
+library(polycor) # for hetcor() function
+```
+
+First create a covariance matrix. The {lavaan} package has a nice function for this. First create the lower portion of the matrix as a text string with line breaks, then use the `getCov()` function. I'm creating a correlation matrix to make life easier.
+
+```{r}
+lower <- '
+1
+0.5 1
+0.6 -0.3 1
+0.8 0.2 0.7 1'
+S <- getCov(lower)
+S
+```
+
+(See also the examples on the help page for `hetcor()` for an alternative way to generate a random covariance matrix using matrix algebra.)
+
+Next generate some multivariate normal data using our covariance matrix and convert to data frame
+
+```{r}
+set.seed(123)
+d <- as.data.frame(rmvnorm(n = 1000 * 4, mean = rep(1, 4), sigma = S))
+```
+
+Create ordered likert-type variables that range from 1 - 5. The `rescale()` function is handy for this.
+
+```{r}
+d$V1 <- factor(round(rescale(d$V1, to = c(1,5))))
+d$V2 <- factor(round(rescale(d$V2, to = c(1,5))))
+```
+
+Glance at the data.
+
+```{r}
+head(d)
+```
+
+Now we're ready to use the `hetcor()` function to generate a correlation matrix for this data. It will automatically calculate either polychoric, polyserial, or pearson correlations depending on data type.
+
+```{r}
+cor_d <- hetcor(d)
+cor_d
+```
+
+If desired we can extract the correlation matrix from the `hetcor` object.
+
+```{r}
+cor_d$correlations
+```
+
+This can be useful creating visualizations such as the kind available with the {corrplot} package.
+
+```{r message=FALSE}
+library(corrplot)
+corrplot(cor_d$correlations, type = 'upper', diag = FALSE)
+```
+

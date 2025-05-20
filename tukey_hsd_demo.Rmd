@@ -1,0 +1,71 @@
+---
+title: "Tukey HSD"
+author: "Clay Ford"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Simulate data
+
+Simulate three groups of data by sampling from three normal distributions with the same standard deviation (1) but different means. The `set.seed(123)` line makes this data reproducible.
+
+```{r}
+set.seed(123)
+a <- rnorm(n = 20, mean = 3, sd = 1)
+b <- rnorm(n = 20, mean = 3.5, sd = 1)
+c <- rnorm(n = 20, mean = 4, sd = 1)
+d <- data.frame(grp = rep(c("a", "b", "c"), each = 20),
+                y = c(a, b, c))
+```
+
+Calculate the means for each group:
+
+```{r}
+means <- aggregate(y ~ grp, data = d, mean)
+means
+```
+
+Calculate difference in means:
+
+```{r}
+ba <- means$y[means$grp == "b"] - means$y[means$grp == "a"]
+ca <- means$y[means$grp == "c"] - means$y[means$grp == "a"]
+cb <- means$y[means$grp == "c"] - means$y[means$grp == "b"]
+results <- data.frame(comparison = c("b-a", "c-a", "c-b"), 
+           diff = c(ba, ca, cb))
+results
+```
+
+
+## T-tests
+
+Run t-tests for all three comparisons:
+
+```{r}
+ba <- t.test(y ~ grp, data = d, subset = grp != "c")
+ca <- t.test(y ~ grp, data = d, subset = grp != "b")
+cb <- t.test(y ~ grp, data = d, subset = grp != "a")
+```
+
+Put p-values in a table:
+
+```{r}
+results$pvalue <- c(ba$p.value, ca$p.value, cb$p.value)
+results
+```
+
+Notice two are "significant" at the 0.05 level.
+
+## ANOVA and Tukey's HSD
+
+Now analyzing using a one-way ANOVA and conduct pairwise comparisons using Tukey's HSD. Notice all p-values are higher than their t-test counterparts and only one is "significant" at 0.05 level.
+
+```{r}
+m <- aov(y ~ grp, data = d)
+TukeyHSD(m)
+```
+

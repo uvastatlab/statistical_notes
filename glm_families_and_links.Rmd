@@ -1,0 +1,183 @@
+---
+title: "Understanding the log link in a Poisson model"
+author: "Clay Ford"
+date: "2025-03-21"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, comment = "")
+```
+
+
+A linear model allows us to calculate _conditional_ means. For example, a model to estimate the mean number of visits to the health clinic for two dorms at a university might be
+
+$$
+\text{visits} = 0.9 + 2.2x
+$$
+
+where $x = 0$ for dorm 1 and $x = 1$ for dorm 2. In other words, the mean number of visits to the health clinic for students in dorm 1 is 0.9, and the mean number of visits to the health clinic for students in dorm 2 is 0.9 + 2.2 = 3.1.
+
+This model will not always be right. It's just an approximation. It will be off by some amount. This amount is usually called the _error_, symbolized with $\epsilon$.
+
+$$
+\text{visits} = 0.9 + 2.2x + \epsilon
+$$
+
+We assume the error is a random draw from a probability distribution. The probability distribution for a basic linear model, also known as the ordinary least squares (OLS) model, is the _normal_ distribution. The normal distribution has two parameters: the mean and standard deviation. For a linear model we assume the mean is 0 and we estimate the standard deviation. This is reported as _residual standard error_ in model output.
+
+Here's what the linear model looks like when we fit it in R:
+
+```{r include=FALSE}
+set.seed(12)
+x <- sample(0:1, size = 50, replace = TRUE)
+visits <- rpois(n = 50, lambda = exp(0.2 + 0.8*x))
+d <- data.frame(visits, x)
+```
+
+```{r}
+m <- lm(visits ~ x, data = d)
+summary(m)
+```
+
+The intercept is the expected mean visits for dorm 1. The x coefficient is the _difference_ in mean visits between dorm 2 and dorm 1. The standard deviation of the normal distribution from which the error is sampled is estimated to be 1.295. 
+
+Because the error is normally distributed, this implies _the estimated means are also normally distributed_. We can state this mathematically as
+
+$$
+\text{dorm 1 count} \sim N(0.9, 1.295)
+$$
+$$
+\text{dorm 2 count} \sim N(0.9 + 2.2, 1.295)
+$$
+
+We can use this model to estimate the expected number of visits to the health clinic for 10 incoming students to dorm 1 where the expected number of visits is 0.9. We do this by sampling from a normal distribution with mean 0.9 and standard deviation 1.295. We can do the sampling in R using the `rnorm()` function.
+
+```{r echo=FALSE}
+set.seed(1)
+```
+
+
+```{r}
+rnorm(n = 10, mean = 0.9, sd = 1.295)
+```
+
+These expected values are bizarre. For one, they all have decimals. A student won't have 0.08874232 visits to the health clinic. They will have zero or more visits. Another problem is that two of the values are _negative_. That certainly doesn't make any sense. But the normal distribution doesn't know this. It works for _any range of numbers_ with any level of precision. It has no lower or upper bound. Therefore we would like to consider another probability distribution for this model.
+
+## The generalized linear model
+
+Basic linear models assume a normal distribution for the conditional means. There is no option to change the distribution in the `lm()` function. If we want to consider alternative distributions, we need to use _generalized linear models_. We can do this in R with the `glm()` function.
+
+One distribution we might like to consider for our example above is the _Poisson distribution_. The Poisson distribution has one parameter, a mean. This is usually symbolized with $\lambda$. Draws from this distribution are whole numbers that are greater than or equal to 0. We specify this distribution in the `glm()` function using the `family` argument.
+
+```{r}
+m2 <- glm(visits ~ x, data = d, family = poisson)
+summary(m2)
+```
+
+This implies the estimated means are Poisson distributed. We might state this mathematically as
+
+$$
+\text{dorm 1 count} \sim \text{Poisson}(-0.1054)
+$$
+
+$$
+\text{dorm 2 count} \sim \text{Poisson}(-0.1054 + 1.2368)
+$$
+
+But this would be wrong! You may have already been suspicious of the negative intercept, -0.1054, which is the estimated mean number of visits to the health clinic for students in dorm 1. That doesn't make sense. In fact, if we use this value to draw random samples from a Poisson distribution we get a warning and missing values.
+
+```{r error=FALSE}
+rpois(n = 10, lambda = -0.1054)
+```
+
+What's going on? It turns out we need to _exponentiate_ the model to get the conditional means.
+
+$$
+\text{dorm 1 count} \sim \text{Poisson}(e^{-0.1054})
+$$
+
+$$
+\text{dorm 2 count} \sim \text{Poisson}(e^{-0.1054 + 1.2368})
+$$
+
+Using the `exp()` function, we can now get estimated counts for the next 10 students in dorm 1:
+
+```{r}
+rpois(n = 10, lambda = exp(-0.1054))
+```
+
+Why do we have to exponentiate? Because exponentiating ensures the estimated means are _positive_. This allows our model, called the _linear predictor_, to take any range of values, positive or negative. No matter the estimated model, we'll always get positive means once we exponentiate.
+
+But why didn't R just do that for us and report the exponentiated coefficients in the output? Because the _estimated mean_ has to be exponentiated, not the individual coefficients. We don't exponentiate 1.2368. We exponentiate -0.1054 + 1.2368. We _can_ exponentiate 1.2368, but that doesn't return an estimated mean. It returns a multiplicative effect.
+
+```{r}
+exp(1.2358)
+```
+
+This says the counts for dorm 2 are expected to be about 3.4 times higher than the counts for dorm 1.
+
+Now we can express our model as a single probability expression:
+
+$$
+\text{visits} \sim \text{Poisson}(e^{-0.1054 + 1.2368x})
+$$
+
+The model, or linear predictor, is $-0.1054 + 1.2368x$. To extract the model, we have to take the log of the expression. The log is the inverse of exponentiation. 
+
+$$ 
+\text{log}(e^{x}) = x
+$$
+
+Because the log transformation allows us to extract the linear model, we call the log the _"link"_ to our model. The log is the default link for the `poisson()` function in R. We can explicitly state this when we fit a Poisson model as follows:
+
+```{r eval=FALSE}
+m2 <- glm(visits ~ x, data = d, family = poisson(link = "log"))
+```
+
+## Simulating data for a Poisson model
+
+The data for the example above was simulated using the `rpois()` function. Notice the _true_ linear model is $0.2 + 0.8x$. Also notice the `exp()` function exponentiates the model.
+
+```{r eval=FALSE}
+RNGversion("4.4.3")
+set.seed(12) # make reproducible
+x <- sample(0:1, size = 50, replace = TRUE)
+visits <- rpois(n = 50, lambda = exp(0.2 + 0.8*x))
+d <- data.frame(visits, x)
+```
+
+The link to the model is the log transformation:
+
+$$
+\text{log}(e^{0.2 + 0.8x}) = 0.2 + 0.8x
+$$
+
+Two other links for the poisson family are the "identity" and "sqrt" (square root) links. The identity link simply means there is no transformation. We can simulate data appropriate for an identity link by not using the `exp()` function. Notice the estimated coefficients are close to the true values. (We use a larger sample size to help the model come closer to estimating the true coefficients of the linear model.)
+
+```{r}
+set.seed(13)
+n <- 1000
+x <- sample(0:1, size = n, replace = TRUE)
+visits <- rpois(n = n, lambda = 0.2 + 0.8*x)
+d <- data.frame(visits, x)
+m_i <- glm(visits ~ x, data = d, family = poisson(link = "identity"))
+summary(m_i)
+```
+
+We can simulate data appropriate for a square root link by _squaring_ the model. That's because the square root is the inverse of the square.
+
+$$
+\sqrt{(0.2 + 0.8x)^2} = 0.2 + 0.8x
+$$
+
+```{r}
+set.seed(14)
+x <- sample(0:1, size = n, replace = TRUE)
+visits <- rpois(n = n, lambda = (0.2 + 0.8*x)^2) # square the model
+d <- data.frame(visits, x)
+m_s <- glm(visits ~ x, data = d, family = poisson(link = "sqrt"))
+summary(m_s)
+```
+
+<br><br><br><br><br>

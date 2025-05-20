@@ -1,0 +1,135 @@
+---
+title: "Mediation analysis and t-test"
+author: "Clay Ford"
+date: '2022-05-25'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# generate data
+n <- 400
+set.seed(999)
+grp <- sample(0:1, size = n, replace = TRUE) |> factor()
+M <- 1.5 + 0.6*(grp=="1") + rnorm(n, sd = 0.1)
+Y <- 1.9 + 0.1*(grp=="1") + 0.5*M + rnorm(n, sd = 0.1)
+# TRUE ACME/indirect effect = 0.6 * 0.5 = 0.3
+# TRUE ADE = 0.1
+# TRUE Total Effect = ACME + ADE = 0.3 + 0.1 = 0.4
+d <- data.frame(grp = grp, Y = Y, M = M)
+
+```
+
+## The consultation question
+
+I had a phd candidate in systems engineering ask why their mediation analysis was not agreeing with their t-test. (wut?)
+
+## The t-test
+
+Let's start with the t-test. To keep it simple we call their dependent variable `Y` and the treatment `grp`, which is a 0/1 indicator variable. We see that the mean of Y for grp 1 is higher than the mean of Y for grp 0.
+
+```{r}
+aggregate(Y ~ grp, data = d, mean)
+```
+
+Is that difference "significant"? They carried out a t-test:
+
+```{r}
+t.test(Y ~ grp, data = d)
+```
+
+Sure does appear so. The 95% CI is (-0.42, -0.37). We're pretty sure the mean of grp 0 is at least -0.37 less than the mean of grp 1. 
+
+The _difference in means_ can be thought of as the _effect size_. Below we take the difference between grp1 and grp 0. I use the base R pipe to pass the estimate (ie, the two means) into the `diff()` function, which takes the first element of a vector and subtracts it from the next element. Then I use `as.numeric()` to strip off some metadata. 
+
+```{r}
+t.test(Y ~ grp, data = d)$estimate |> diff() |> as.numeric()
+```
+
+The effect of the treatment (grp = 1) is about 0.396. In other words, if you're in grp 1, we expect your Y value to be about 0.396 higher than it otherwise would have been if you were in grp 0.
+
+## The mediation analysis
+
+The student's advisor suggested there was another variable acting as a _mediator_ and that they should do a mediation analysis. Let's call the mediator variable `M`. The basic idea is that the treatment variable, `grp` is actually affecting `M`, which is then affecting `Y`. This is usually visualized with a diagram. A former StatLab grad student associate wrote a [good blog post](https://data.library.virginia.edu/introduction-to-mediation-analysis/) on this topic and works through an example with some pictures. 
+
+Three quantities of interest usually come out of a mediation analysis:
+
+1. The effect of the mediator, also called the "average causal mediation effect" (ACME) or indirect effect.
+2. The effect of treatment _controlling for mediation_, also called the "average direct effect" (ADE). 
+3. The Total Effect, with is ACME + ADE. This is the total effect of the mediator and treatment.
+
+One way to perform a mediation analysis is with the **lavaan** package. ("lavaan" is short for "latent variable analysis".) This is a whole different beast, but the basic idea is you specify a structural equation model as lines of text using lavaan model syntax. Then you fit the model using the `sem()` function. In the formula below, "a", "b", "ADE", and "ACME" are simply labels for the coefficients being estimated. The latter two are what we care about. The `:=` notation says that the ACME is a _latent variable_ that we do not directly observe. So we estimate by multiplying the coefficients "a" and "b".
+
+Here is what the grad student did:
+
+```{r message=FALSE}
+library(lavaan)
+m <- '
+  M ~ a*grp
+  Y ~ b*M
+  Y ~ ADE*grp
+  ACME := a*b 
+'
+fitm <- sem(m, data=d)
+summary(fitm)
+```
+
+Now to their question: why is the estimated ADE of 0.110 _so much smaller_ than the estimated effect size of 0.396 from the t-test? Isn't the Direct Effect the same as the effect size returned from the t-test?
+
+As it turns out, no, they are not the same things. The average direct effect (ADE) is the effect of treatment _controlling for mediation_. (I find the terminology of "direct effect" very confusing. especially when the effect is being adjusted for another variable!) The difference in means from a t-test is the effect of treatment _not controlling_ for anything else. It is called the "Total Effect" in mediation analysis. 
+
+If we want to use the lavaan model to estimate the Total Effect (ie, diff in means from t-test), we sum ADE and ACME. So I modified their R code as follows.
+
+```{r}
+m <- '
+  M ~ a*grp
+  Y ~ b*M
+  Y ~ ADE*grp
+  ACME := a*b 
+  Total := ADE + ACME  ## t-test effect size, difference in means
+'
+fitm <- sem(m, data=d)
+summary(fitm)
+```
+
+Notice the last line under "Defined Parameters" shows Total as 0.396, which is the same as what we got from the t-test:
+
+```{r}
+t.test(Y ~ grp, data = d)$estimate |> 
+  diff() |> 
+  as.numeric() |>
+  round(3)
+```
+
+That was basically the consultation. Me figuring out the distinction between Average Direct Effect and Total Effect!
+
+For what it's worth, here's how I simulated the data for this example. First I simulate `M` using `grp` and some noise from a Normal distribution. Then I use both `M` and `grp` to simulate `Y`, one again with some noise. So in the simulation we see that `grp` affected `M`, and then `M` and `grp` affected `Y`. We might call this "partial mediation" since `grp` affects both `M` and `Y`.
+
+
+```{r eval=FALSE}
+n <- 400
+set.seed(999)
+grp <- sample(0:1, size = n, replace = TRUE) |> factor()
+M <- 1.5 + 0.6*(grp=="1") + rnorm(n, sd = 0.1)
+Y <- 1.9 + 0.1*(grp=="1") + 0.5*M + rnorm(n, sd = 0.1)
+d <- data.frame(grp = grp, Y = Y, M = M)
+```
+
+- The TRUE ACME/indirect effect/mediation effect is 0.6 * 0.5 = 0.3. The lavaan model estimated it as 0.286.
+- The TRUE ADE = 0.1 (in code where we create `Y`). The lavaan model estimated it as 0.110.
+- The TRUE Total Effect (ACME + ADE) = 0.3 + 0.1 = 0.4. The lavaan model estimated it as 0.396.
+
+Notice if we divide ACME by Total Effect we get 0.3/0.4 = 0.75. We might say the proportion of the effect mediated is 0.75. 
+
+The `mediate()` function in the mediation package formally estimates this in addition to ACME, ADE, and Total Effect. Its estimates are slightly different from lavaan's because it uses something called Quasi-Bayesian Approximation which involves simulation. To use the `mediate()` function we first have to fit a model for the mediator and then fit a model for the dependent variable. Below it estimates the proportion of the effect mediated to be about 0.73.
+
+```{r message=FALSE}
+library(mediation)
+b <- lm(M ~ grp, data = d)
+c <- lm(Y ~ grp + M, data = d)
+mout <- mediate(b, c, treat = "grp", mediator = "M")
+summary(mout)
+```
+
+I hope you found this helpful. 
