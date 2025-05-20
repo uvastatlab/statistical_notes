@@ -1,0 +1,101 @@
+---
+title: "Normality is for residuals"
+author: "Clay Ford"
+date: "11/2/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+The normality assumption in linear modeling (multiple regression) is **on the residuals**, not the dependent or independent variables.
+
+```{r echo=FALSE}
+set.seed(1)
+n <- 14
+x1 <- runif(n)
+x2 <- rexp(n)
+x3 <- gl(n = 2, k = 7)
+y <- 7.8 + 1.2 * x1 + 3.9 * x2 + 20.5 * (x3 == "2") + rnorm(n, sd = 4.7)
+d <- data.frame(y, x1, x2, x3)
+```
+
+Look at the following data. Size is n = 14:
+
+```{r}
+str(d)
+```
+
+Let's say we want to model `y` as an additive function of `x1`, `x2` and `x3`. This is basic multiple regression. Before we begin, let's examine the distributions of the numeric data. **None of them are remotely Normal.**
+
+```{r}
+hist(d$y)
+hist(d$x1)
+hist(d$x2)
+
+```
+
+That doesn't matter. We can still proceed with multiple regression:
+
+```{r}
+m <- lm(y ~ x1 + x2 + x3, data = d)
+```
+
+**NOW** is the time to assess the normality assumption. One way is via QQ-Plot, which is built-in to R as follows. The dots should lie close to the diagonal line. The normality assumption checks out. It really doesn't get any better than this.
+
+```{r}
+plot(m, which = 2)
+```
+
+We could also look at a histogram of the residuals. This looks pretty good considering our small sample size.
+
+```{r}
+hist(residuals(m))
+```
+
+We could even do a Shapiro-Wilk normality test, though I don't care for it since it encourages binary Yes-No thinking. In this case however, the result agrees with the QQ plot and histogram. We fail to reject the Null of Normality.
+
+
+```{r}
+shapiro.test(residuals(m))
+```
+
+### How I generated the data
+
+Here is the R code I used to generate the data. Notice the only values that were generated from a Normal distribution are the errors (or residuals): `rnorm(n, sd = 4.7)`. The `x1` and `x2` values were drawn from uniform and exponential distributions, respectively. The `x3` variable is a categorical variable with 2 levels, 7 each.
+
+```{r}
+set.seed(1)
+n <- 14
+# generate IVs
+x1 <- runif(n)
+x2 <- rexp(n)
+x3 <- gl(n = 2, k = 7)
+# generate DV
+y <- 7.8 + 1.2 * x1 + 3.9 * x2 + 20.5 * (x3 == "2") + rnorm(n, sd = 4.7)
+d <- data.frame(y, x1, x2, x3)
+```
+
+Notice the regression does a decent job of recovering the "True" values used to generate the data, except for `x1`.
+
+```{r}
+summary(m)
+```
+
+True Intercept: 7.8   
+Estimated Intercept: 13.721
+
+True x1 coefficient: 1.2    
+Estimated x1 coefficient: -9.077
+
+True x2 coefficient: 3.9     
+Estimated x3 coefficient: 4.137
+
+True x3 coefficient: 20.5    
+Estimated x3 coefficient: 18.467
+
+True Residual standard error: 4.7    
+Estimated Residual standard error: 3.556
+
+_And all of this worked despite none of the predictors or dependent variable being normally distributed._

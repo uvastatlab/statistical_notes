@@ -1,0 +1,51 @@
+---
+title: "Term plots"
+author: "Clay Ford"
+date: "2024-06-25"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Fit a model with four predictors. All are linear. Notice the residuals versus fitted plot. Not great.
+
+```{r}
+data(mtcars)
+m <- lm(mpg ~ wt + disp + drat + qsec, data = mtcars)
+plot(m, which = 1)
+```
+
+Use term plots to investigate departures from linearity for each coefficient. Notice how the smooth trend line for the predictor `wt` _bends_ around the slope. This suggests a quadratic term may be more suitable.
+
+```{r}
+op <- par(mfrow=c(2,2))
+termplot(m, partial.resid=TRUE, smooth=panel.smooth)
+par(op)
+```
+
+Add quadratic term for wt predictor. Now the fitted versus residuals plot looks better.
+
+```{r}
+m2 <- lm(mpg ~ poly(wt,2) + disp + drat + qsec, data = mtcars)
+plot(m2, which = 1)
+```
+
+
+The term plots also look better.
+
+```{r}
+op <- par(mfrow=c(2,2))
+termplot(m2, partial.resid=TRUE, smooth=panel.smooth)
+par(op)
+
+```
+
+The car package also makes these plots using the `crPlots()` function.
+
+```{r message=FALSE}
+library(car)
+crPlots(m)
+```
+

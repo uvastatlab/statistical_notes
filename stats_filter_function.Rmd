@@ -1,0 +1,128 @@
+---
+title: "The stats::filter() function"
+author: "Clay Ford"
+date: "2022-10-12"
+output:
+  html_document:
+    self_contained: yes
+    pandoc_args: ["--wrap=none"]
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+The base R function `filter()` can be used to calculate moving averages. This is one of the base R functions masked when the {dplyr} package is loaded.
+
+Before we see how it works, let's create some toy data.
+
+```{r}
+n <- 100
+t <- as.Date(seq(n), origin = as.Date("01/01/2022", "%m/%d/%Y"))
+set.seed(1)
+y <- cos(pi*seq(-2,2, length.out = n)) + rnorm(n, sd = 0.5)
+d <- data.frame(t, y)
+
+library(ggplot2)
+ggplot(d) +
+  aes(t, y) +
+  geom_line()
+
+```
+
+
+## 3 day moving average
+
+Let's say we want to calculate a 3 day moving average. Two ways to approach this:
+
+1. on any given day, take average of day before, current day, and next day. In other words use data from *both sides* of current day.
+
+2. on any given day, take average of prior two days and current day. In other words use data from only *one side* of current day.
+
+The first approach is the default of the `filter()` function. The first argument is the vector of data we want to calculate the moving average for. The second argument is the _filter_ we want to apply to the data. These are _coefficients_ we apply to the data before summing. For a 3 day moving average this is a vector of three `1/3`, which we can create using `rep(1/3, 3)`. The `sides=2` argument says use both sides of the data.
+
+```{r}
+d$ma3 <- stats::filter(d$y, filter = rep(1/3, 3), sides = 2)
+```
+
+Let's look at the first three values. There's a NA for day 1 because we have no data for the prior day. 
+
+```{r}
+d$ma3[1:3]
+```
+
+The first 3 day moving average is 0.7735613 calculated at day 2. This is the average of days 1, 2, and 3.
+
+```{r}
+mean(y[1:3])
+```
+
+Notice we can get the same result by multiplying each data point by `1/3`and summing. This is the "filter" applied to the data by the `filter()` function.
+
+```{r}
+sum(1/3 * y[1:3])
+```
+
+One reason to calculate a moving average is to smooth out day-to-day variation. Below we plot the original data with the 3 day moving average superimposed.
+
+```{r}
+ggplot(d) +
+  aes(t, y) +
+  geom_line(alpha = 1/4) +
+  geom_line(aes(y = ma3), color  = "red")
+```
+
+The other approach is to use one side of the data. That means setting `sides= 1`. Now we get 2 NAs at the beginning because days 1 and 2 did not have two prior days. 
+
+```{r}
+d$ma3 <- stats::filter(d$y, filter = rep(1/3, 3), sides = 1)
+d$ma3[1:3]
+```
+
+## odd versus even numbers
+
+Odd numbers are good to use for `sides = 2` because we'll get an equal number of days before and after the current day. If an even number is used, "more of the filter is forward in time than backward" (`?filter`). 
+
+For example, consider a 6 day moving average:
+
+```{r}
+d$ma6 <- stats::filter(d$y, filter = rep(1/6, 6), sides = 2)
+d$ma6[1:3]
+```
+
+The first 6 day moving average occurs at day 3 which is the average of the current day, the 2 previous days, and the 3 following days. Notice "more of the filter is _forward in time_ than backward":
+
+1 2 **3** 4 5 6 
+
+```{r}
+sum(1/6 * y[1:6])
+```
+
+
+## Other functions
+
+Three other functions for calculating moving averages are:
+
+1. `runmean()` from the {caTools} package
+2. `frollmean()` from the {data.table} package
+3. `roll_mean()` from the {RcppRoll} package
+
+Below I use all three to replicate the `stats::filter()` result. 
+
+For `caTools::runmean()` we need to specify `endrule = "NA"`, otherwise it uses an algorithm to calculate means in the extremes using smaller windows than 3.
+
+For `data.table::frollmean()` we need to specify `align = "center"`, which is the same as `sides = 2` for `filter()`. Otherwise it defaults to `align = "right"` which is equivalent to `sides = 1` for `filter()`.
+
+For `RcppRoll::roll_mean` we need to specify `fill = NA` to pad the output with missing values in the extremes. Otherwise, in this case, it returns a vector of length 98 instead of 100.
+
+```{r}
+d$ma3 <- stats::filter(d$y, filter = rep(1/3, 3), sides = 2)
+d$ma3_runmean <- caTools::runmean(d$y, k = 3, endrule = "NA")
+d$ma3_frollmean <- data.table::frollmean(d$y, n = 3, align = "center")
+d$ma3_rcpproll <- RcppRoll::roll_mean(d$y, n = 3, align = "center",
+                                      fill = NA)
+head(d[,c("ma3", "ma3_runmean", "ma3_frollmean", "ma3_rcpproll")])
+```
+
+

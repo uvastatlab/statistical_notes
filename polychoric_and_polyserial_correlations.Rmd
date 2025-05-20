@@ -1,0 +1,178 @@
+---
+title: "Polyserial and Polychoric Correlation"
+author: "Clay Ford"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Polyserial correlation
+
+Polyserial correlation is a measure of association between _a continuous variable and an ordinal variable_. Two assumptions about this correlation:
+
+1. The joint distribution of the two variables is bivariate normal.
+2. The ordinal variable is assumed to be derived from a latent continuous variable. 
+
+The `polyserial()` function from the {polycor} package calculates polyserial correlation. The help page for this function provides a helpful example that illustrate the assumptions.
+
+First we simulate bivariate normal data using the `rmvnorm()` function from the {mvtnorm} package. The means are 0, the standard deviations are 1, and the covariance (correlation) is 0.5. This satisfies the first assumption above (i.e., the distribution of the variables is bivariate normal).
+
+```{r}
+library(mvtnorm)
+set.seed(12345)
+data <- rmvnorm(1000, mean = c(0, 0), sigma = matrix(c(1, .5, .5, 1), 2, 2))
+x <- data[,1]
+y <- data[,2]
+cor(x, y)  
+```
+
+The sample correlation is close to 0.5 used to simulate data. 
+
+Now polychotomize `y` into 4 categories. Notice the thresholds are -1, 0.5, and 1.5. These are arbitrary selections. This satisfies the second assumption above (i.e., y is derived from a continuous variable).
+
+```{r}
+y <- cut(y, c(-Inf, -1, .5, 1.5, Inf))
+summary(y)
+```
+
+Now calculate polyserial correlation using the `polyserial()` function. The default is to use the _2-step estimate_ to perform the calculation. Notice the result is similar to 0.5 used to simulate data.
+
+```{r}
+library(polycor)
+polyserial(x, y)
+```
+  
+We can request a standard error for the estimated correlation by setting `std.err=TRUE`. When we do that, the correlation is estimated numerically which results in a slightly different estimate. This also returns the estimated thresholds. Notice how close they are to the original thresholds we specified in the `cut()` function: -1, .5, 1.5. Finally a bivariate test of normality is run. The null is the data are bivariate normal. The test fails to reject this hypothesis. 
+
+```{r}
+polyserial(x, y, std.err=TRUE) 
+```
+
+There is also a _maximum likelihood estimator_ for polyserial correlation that is more computationally demanding. This can be requested by setting `ML=TRUE`. Notice this returns estimated standard errors for the threshold estimates.
+
+```{r}
+polyserial(x, y, ML=TRUE, std.err=TRUE) 
+```
+
+### Example
+
+Drasgow (1986) works an example to calculate the polyserial correlation between the weight of ewes at mating (in lbs) and the number of lambs born to the ewe. 
+
+```{r}
+# Table 1: weights and number of lambs born for 25 ewes
+X <- c(72, 88, 112, 93, 86, 87, 78, 
+       69, 101, 108, 104, 92, 77,
+       80, 99, 92, 72, 81, 88,
+       104, 103, 85, 96, 96, 104)
+d <- c(rep(0,3), rep(1, 17), rep(2, 5))
+table(d) # ordered categorical variable; number of lambs born
+polyserial(X, d, std.err = TRUE)
+```
+
+The correlation is estimated to be about 0.22, but the standard error of 0.22 suggests this estimate is very uncertain. The thresholds of -1.18 and 0.84 are the estimated cutpoints where the latent continuous data was cut to create the ordered values of 0, 1, and 2. But it's weird to me to think of "number of lambs born" having an underlying latent variable. 
+
+## Polychoric correlation
+
+Polychoric correlation is a measure of association between _two ordinal variables_. Two assumptions about this correlation:
+
+1. The joint distribution of the two variables is bivariate normal.
+2. The ordinal variables are assumed to be derived from latent continuous variables. 
+
+The `polychor()` function from the {polycor} package calculates polychoric correlation. The help page for this function provides a helpful example that illustrate the assumptions.
+
+First we simulate bivariate normal data using `rmvnorm()` function from the {mvtnorm} package. The means are 0, the standard deviations are 1, and the covariance (correlation) is 0.5. This satisfies the first assumption above (i.e., the distribution of the variables is bivariate normal).
+
+```{r}
+library(mvtnorm)
+set.seed(12345)
+data <- rmvnorm(1000, mean = c(0, 0), sigma = matrix(c(1, .5, .5, 1), 2, 2))
+x <- data[,1]
+y <- data[,2]
+cor(x, y)  
+```
+
+The sample correlation is close to 0.5 used to simulate data. 
+
+Now dichotomize `x` into two categories and polychotomize `y` into 4 categories. The thresholds are arbitrary selections. This satisfies the second assumption above (i.e., x and y are derived from continuous variables).
+
+```{r}
+x <- cut(x, c(-Inf, .75, Inf))
+summary(x)
+y <- cut(y, c(-Inf, -1, .5, 1.5, Inf))
+summary(y)
+```
+
+Now calculate polychoric correlation using the `polychor()` function. The default is to use the _2-step estimate_ to perform the calculation. Notice the result is similar to 0.5 used to simulate data.
+
+```{r}
+polychor(x, y)
+```
+
+We can request a standard error for the estimated correlation by setting `std.err=TRUE`. When we do that, the correlation is estimated numerically which results in a slightly different estimate. This also returns the estimated thresholds for the "row" and "column" variables. This terminology is due to the fact that two ordinal variables are usually presented in a table as a cross tabulation. Notice how close they are to the original thresholds we specified in the `cut()` function above. Finally a bivariate test of normality is run. The null is the data are bivariate normal. The test fails to reject this hypothesis. 
+
+```{r}
+polychor(x, y, std.err=TRUE) 
+```
+
+There is also a _maximum likelihood estimator_ for polychoric correlation that is more computationally demanding. This can be requested by setting `ML=TRUE`. Notice this returns estimated standard errors for the threshold estimates.
+
+```{r}
+polychor(x, y, ML=TRUE, std.err=TRUE) 
+```
+
+### Example
+
+Drasgow (1986) works an example to calculate the polychoric correlation between number of lambs born to ewes in 1953 versus 1952. The following reproduces Table 2 in the article.
+
+```{r}
+labels <- c("No lambs", "1 lamb", "2 lambs")
+table2 <- matrix(c(58, 52, 1,
+                   26, 58, 3,
+                   8, 12, 9), byrow = TRUE, nrow = 3,
+                 dimnames = list("1952" = labels, "1953" = labels))
+
+addmargins(table2)
+```
+
+The maximum likelihood estimate of polychoric correlation between the two variables is about 0.42 with a standard error of about 0.08. However, the test of bivariate normality calls into question the null hypothesis of underlying normally distributed variables. Perhaps this isn't surprising since it seems unusual to assume "number of lambs born" would be derived from an underlying continuous variable. 
+
+```{r}
+polychor(table2, ML = TRUE, std.err = TRUE) 
+```
+
+## Gamma and Delta
+
+Another measure of association between two ordinal factors is _Goodman Kruskal's Gamma_, available in the {DescTools} package. This analysis is based on examining _pairs of observations_. Use the `conf.level` argument to request a confidence interval.
+
+```{r}
+library(DescTools)
+GoodmanKruskalGamma(table2, conf.level = 0.95)
+```
+
+If one of the ordinal variables can be considered a dependent variable, Somers' Delta, aka Somers' d, can also be used to measure association. Perhaps we entertain "1953" results as being dependent on "1952" results. Since "1953" is presented in the rows, we set `direction = "row"`. This result is appreciably smaller. This is because Somers' d accounts for ties in the number of pairs. 
+
+```{r}
+SomersDelta(table2, direction = "row", conf.level = 0.95)
+```
+
+For derivations of the Gamma and Delta statistics see the StatLab article, [Understanding Somers' D](https://library.virginia.edu/data/articles/understanding-somers-d)
+
+## References
+
+- Drasgow, F. (1986) Polychoric and polyserial correlations. Pp. 68-74 in S. Kotz and N. Johnson, eds., The Encyclopedia of Statistics, Volume 7. Wiley.
+- Fox J (2022). _polycor: Polychoric and Polyserial Correlations_. R package version 0.8-1, <https://CRAN.R-project.org/package=polycor>.
+- Genz A, Bretz F (2009). _Computation of Multivariate Normal and t Probabilities_, series Lecture Notes in Statistics. Springer-Verlag, Heidelberg. ISBN 978-3-642-01688-2.
+-  R Core Team (2024). _R: A Language and Environment for Statistical Computing_. R Foundation for Statistical Computing, Vienna, Austria. <https://www.R-project.org/>.
+- Signorell A (2024). _DescTools: Tools for Descriptive Statistics_. R package version 0.99.56, <https://CRAN.R-project.org/package=DescTools>.
+
+## Session Information
+
+```{r}
+R.version.string
+packageVersion("polycor")
+packageVersion("DescTools")
+```
+

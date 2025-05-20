@@ -18,14 +18,30 @@ Investigating multicolinearity and challenging idea of inspecting pairwise corre
 - [Understanding the {ggeffects} predict_response() margin argument](ggeffects_margin_argument.html) (Clay Ford, 2025-01-10)    
 Elaborating on the {ggeffects} vignette, [Difference Between Marginalization Methods: The margin Argument](https://strengejacke.github.io/ggeffects/articles/technical_differencepredictemmeans.html).
 
+- [Polyserial and Polychoric Correlation](polychoric_and_polyserial_correlations.html) (Clay Ford, 2024-09-24)      
+An intro to polyserial and polychoric correlation using the {polycor} package. 
+
+- [Demo of Term plots](term_plots.html) (Clay Ford, 2024-06-25)     
+Demonstration of using term plots to detect departures from linearity for coefficients. Shows the base R `termplot()` and `car::crPlots()` functions.
+
 - [Compact Letter Displays](cld.html) (Clay Ford, 2024-03-24)    
 How to create and interpret Compact Letter Displays, though [some people don't like them](https://stats.stackexchange.com/questions/275832/interpreting-compact-letter-displays-and-tukey-multiple-comparisons-from-glmm#comment829280_275832).
 
-- [Forced One-way ANOVA](forced_oneway_anova.html)(Clay Ford, 2023-12-01)    
+- [Forced One-way ANOVA](forced_oneway_anova.html) (Clay Ford, 2023-12-01)    
 Convert a two-way ANOVA into a one-way ANOVA.
 
 - [Data wrangling consultation](consultation_summary_2023-08-28.html) (Clay Ford, 2023-08-28)     
 Data wrangling tasks: (1) drop any groups with less than 10 rows, (2) drop rows with runs of zeroes greater than or equal to 5.
+
+- [The stats::filter() function](stats_filter_function.html) (Clay Ford, 2022-10-12)      
+How to use the the base R `filter()` function to calculate moving averages.
+
+- [Three approaches to logistic regression in R](three_approaches_to_logistic_regression_in_R.html) (Clay Ford, 2022-07-18)    
+Demo of three ways to fit a logistic regression model in R. 
+
+
+- [Nomogram demo](nomogram_demo.html) (Clay Ford, 2022-03-31)     
+This demonstration is a modification of the example available on the `nomogram()` help page from the {rms} package. It demonstrates a nomogram for a logistic regression model using simulated data.
 
 - [Demo of Generalized Linear Mixed Model](glmm.html) (Clay Ford, 2021-02-12)    
 A demonstration of binomial GLMM using simulated data.
@@ -33,4 +49,8 @@ A demonstration of binomial GLMM using simulated data.
 - [CIs for Cramer's V](cramers_v.html) (Clay Ford, 2021-01-20)    
 Demo of calculating CIs for Cramer's V for a small sample.
 
+- [Normality is for Residuals](normality_is_for_residuals.html) (Clay Ford, 2020-11-02)     
+The normality assumption in linear modeling (multiple regression) is on the residuals, not the dependent or independent variables.
 
+- [Stepwise Model Selection performing poorly](stepwise_simulation.html) (Clay Ford, 2020-09-01)     
+Demo of stepwise model selection performing poorly in the presence of collinearity.

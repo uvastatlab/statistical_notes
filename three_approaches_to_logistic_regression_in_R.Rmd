@@ -1,0 +1,129 @@
+---
+title: "Three approaches to logistic regression in R"
+author: "Clay Ford"
+date: '2022-07-18'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Responses for a binary logistic regression model in R can be specified in one of three ways:
+
+1. As a 0/1 indicator
+
+2. As a proportion with the total number of cases given by the `weights` argument.
+
+3. As a two-column matrix, with the first column giving the number of successes and the second the number of failures.
+
+This is documented on the `family` help page. (`?family`)
+
+## Example data
+
+This data comes from the text _Analysis of Categorical Data with R_. Programs and data are [here](http://www.chrisbilder.com/categorical/programs_and_data.html). The data are on field goals attempted in the NFL. A field goal is good if it goes through the goal posts. The explanatory variable is distance in yards from the field goal. Does distance help explain the probability of a field goal being "good" (good = 1)?
+
+```{r}
+d <- read.csv("http://www.chrisbilder.com/categorical/Chapter2/Placekick.csv")
+d <- d[, c("good", "distance")]
+head(d)
+```
+
+
+## Method 1
+
+Response is coded as 0 or 1. One row per field goal attempt. This is the given structure of this data.
+
+```{r}
+m1 <- glm(good ~ distance, data = d, family = binomial)
+exp(coef(m1))
+```
+
+The odds of a successful field goal decrease about 11% for each yard we get further from the goal posts.
+
+## Method 2
+
+Response is the proportion of successes for each distance. We need to restructure the data to implement this method.
+
+```{r}
+# sum of success by distance
+x <- aggregate(good ~ distance, data = d, sum)
+# sum of attempts or trials by distance
+n <- aggregate(good ~ distance, data = d, length)
+# combine into data frame and create column for proportions
+d2 <- data.frame(distance = x$distance, success = x$good, 
+                 trials = n$good, proportion = x$good/n$good)
+head(d2)
+```
+
+Now use `proportion` as the response, but also include the argument `weights = trials` to indicate total number of attempts for each distance. 
+
+```{r}
+m2 <- glm(proportion ~ distance, data = d2, weights = trials, 
+          family = binomial)
+exp(coef(m1))
+```
+
+Notice the result is the same as method 1.
+
+We could also calculate proportion "on-the-fly" using `success/trials`, like so:
+
+```{r}
+m2 <- glm(success/trials ~ distance, data = d2, weights = trials, 
+          family = binomial)
+```
+
+
+## Method 3
+
+Response is a two-column matrix, with the first column giving the number of successes and the second the number of failures. We need to add number of failures to our data frame, which is simply the difference between attempts and successes.
+
+```{r}
+d2$failure <- d2$trials - d2$success
+```
+
+Now use `cbind()` to create a matrix of successes and failures and use that as our response. We no longer need to use the `weights` argument in this case.
+
+```{r}
+m3 <- glm(cbind(success, failure) ~ distance, data = d2, 
+          family = binomial)
+exp(coef(m3))
+```
+
+## Why one method versus the other?
+
+Even though all three methods produce the same model coefficients, method 1 produces residuals that differ from methods 2 and 3.
+
+Method 1 produces 2 residuals for each unique predictor value. The resulting residual versus fitted plot produces weird patterns that make it hard to assess model fit.
+
+```{r}
+plot(m1, which = 1, main = "Method #1")
+```
+
+Methods 2 and 3 produce one residual per unique predictor value which makes it easier to assess fit.
+
+```{r}
+plot(m2, which = 1, main = "Methods #2 and #3")
+```
+
+Rows 15, 10 and 1 appear to have a smaller proportion of success than the model predicts.
+
+```{r}
+d2[c(1,15,10),"proportion"]
+```
+
+Indeed the model predicts probability of success from those distances to be much higher.
+
+```{r}
+predict(m2, newdata = data.frame(distance = c(18,32,27)), 
+        type = "response")
+```
+
+Of course the model with 0/1 responses makes the same predicted probabilities.
+
+```{r}
+predict(m1, newdata = data.frame(distance = c(18,32,27)), 
+        type = "response")
+```
+
+But the associated residual versus fitted plot for that model doesn't tip us off to that.

@@ -1,0 +1,89 @@
+---
+title: "Demo of a nomogram"
+author: "Clay Ford"
+date: '2022-03-31'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This demonstration is a modification of the example available on the `nomogram()` help page. It demonstrates a nomogram for a logistic regression model using simulated data.
+
+## Simulate data for logistic regression
+
+First we generate 1000 subjects. The variables "age", "blood.pressure" and "cholesterol" are random draws from a Normal distribution. "sex" is just randomly sampled like a coin flip. The `set.seed(17)` function ensures we always generate the same "random" data. We save everything in a data frame and name it "d".
+
+```{r message=FALSE}
+library(rms)
+n <- 1000    # define sample size
+set.seed(17) # so can reproduce the results
+d <- data.frame(age = rnorm(n, 50, 10),
+                blood.pressure = rnorm(n, 120, 15),
+                cholesterol = rnorm(n, 200, 25),
+                sex = factor(sample(c('female','male'), n,TRUE)))
+```
+
+Next we simulate zeroes and ones. (Perhaps 1 equals "Death" and 0 equals "Live".) To do this we first generate a linear predictor, `L`. It's just a weighted function of the variables we generated. This our "true" model.
+
+Then we convert `L` to probabilities using the `plogis()` function. This is also known as the _inverse logit_ function. It takes values on the range $(-\infty, \infty)$ and re-scales to the probability scale, [0,1]. Finally we use the `rbinom()` function to simulate flipping a coin 1000 times, but with probability `p` at each flip. The result, `y`, is a series of zeroes and ones and is added to our data frame
+
+
+```{r message=FALSE}
+L <- 0.01 + .1*(d$sex=='male') + -.02*d$age + 
+  0.01*d$cholesterol + -0.01*d$blood.pressure
+p <- plogis(L)
+d$y <- rbinom(n = 1000, size = 1, prob = p)
+table(d$y)
+```
+
+## Fit a logistic regression model
+
+Next we "work backwards" and try to recover the true model we used to generate the data. Notice we use the `lrm()` function from the rms package. (We have to use `lrm()` to make the nomogram! We can't use `glm()`.) We fit the "correct" model and save to `f`.  Notice printing `f` generates a very informative summary that goes beyond what we get using `glm()`. The values in the `Coef` column are very close to what we specifed in our linear predictor model above.
+
+```{r}
+f <- lrm(y ~ age + sex + cholesterol + blood.pressure,
+         data = d)
+f
+```
+
+## Create a nomogram
+
+Now we make the nomogram. To do that we first need to use the `datadist()` function. This creates a mini dataframe of values that are used for plotting purposes. It is required for the `nomogram` function. Then we set the `datadist` argument of the `options()` function to the datadist object we created. It's a little weird to me and I'm not quite sure I understand what it's doing!
+
+
+```{r}
+ddist <- datadist(d)
+options(datadist='ddist')
+```
+
+Finally we get to the `nomogram()` function. The first argument is the model we fit, `f`. The next argument, `fun`, is for transforming the linear predictor. The model is going to predict values on the range of $(-\infty, \infty)$, so we use the `plogis` function to transform to the probability scale [0,1]. And then we label the outcome "Risk of Death". Save to object `nom` and call `plot()` on it.
+
+```{r}
+nom <- nomogram(f, fun=plogis, funlabel="Risk of Death")
+plot(nom)
+```
+
+Here's how to use. Pick a point on the age, sex, cholesterol and blood pressure scales and get the associated Points directly above it. Then total those points, and then get the associated probability (Risk of Death) corresponding to the Total Points.
+
+For example:
+
+- age=50 (50 points)
+- sex=female (10 points)
+- cholesterol=140 (10 points)
+- blood.pressure=170 (0 points)
+
+Add up the points:
+
+50 + 10 + 10 + 0 = 70 Total Points
+
+70 Total Points lines up a little less than 0.35. So a female age 50 with 140 cholesterol and 170 blood pressure has about 35% risk of death.
+
+We can check our work using the rms `Predict()` function. The predicted probability is about 0.33. Notice yet again we use the `plogis` function to get the prediction on the probability scale.
+
+```{r}
+Predict(f, age=50, sex='female', cholesterol=140, blood.pressure=170,
+        fun=plogis)
+```
+
