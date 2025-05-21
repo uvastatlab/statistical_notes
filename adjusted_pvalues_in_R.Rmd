@@ -1,0 +1,72 @@
+---
+title: "How to adjust p-values using R"
+author: "Clay Ford"
+date: "2022-09-13"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## 1. Enter unadjusted p-values as a vector
+
+I copied and pasted these from Table 3 in your manuscript.
+
+```{r}
+pvalues <- c(0.00032,
+             0.00023,
+             0.035,
+             0.023,
+             0.034,
+             0.00098,
+             0.0013,
+             0.127,
+             0.838,
+             0.475,
+             0.343,
+             0.00043,
+             0.109,
+             0.129,
+             0.165)
+
+labels <- c("Competency/Knowledge base (Positively Mentioned)",
+"Thoroughness (Positively Mentioned)",
+"Thoroughness (Negatively Mentioned)",
+"Temperament (Negatively Mentioned)",
+"Cost-consciousness (Negatively Mentioned)",
+"Interactions with staff (Positively Mentioned)",
+"Interactions with staff (Negatively Mentioned)",
+"Billing and insurance (Positively Mentioned)",
+"Parking (Negatively Mentioned)",
+"Black",
+"Other",
+"Knew Name of Provider (Yes, Reference = No)",
+"Responded to comments (Yes, Reference = No)",
+"Practice Type (Academic, Reference = Non-academic)",
+"Constant")
+
+```
+
+
+## 2. Use p.adjust function to adjust p-values
+
+The default method is the "Holm" method. According to the R documentation: "There seems no reason to use the unmodified Bonferroni correction because it is dominated by Holm's method, which is also valid under arbitrary assumptions."
+
+```{r}
+adj.pvalues <- p.adjust(pvalues, method = "holm")
+```
+
+We can compare the unadjusted with the adjusted values as follows. The changed column indicates which p-values are no longer significant (at 0.05 level) after adjustment.
+
+```{r}
+changed <- ifelse(pvalues < 0.05 & adj.pvalues > 0.05, "X", "")
+d <- data.frame(pvalues, adj.pvalues, changed)
+row.names(d) <- labels
+d
+```
+
+
+## References
+
+Holm, S. (1979). A simple sequentially rejective multiple test procedure. Scandinavian Journal of Statistics, 6, 65–70. https://www.jstor.org/stable/4615733.

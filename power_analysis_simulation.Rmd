@@ -1,0 +1,171 @@
+---
+title: "Power Analysis Simulation"
+author: "Clay Ford"
+date: "10/4/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## The study design
+
+Outcome: Likert scale ranging from 1 - 5    
+Treatment: Psychological safety indicator (1 = treated, 0 = control)   
+
+17 groups of 4 subjects in treated and control groups
+
+## Simulate data
+
+We'll create 34 group ids to indicate group membership. We'll assign the first 17 to control (`safety == 0`) and the next 17 to treated (`safety == 1`).
+
+```{r}
+grp_id <- rep(1:34, each = 4)
+safety <- rep(c(0, 1), each = 17 * 4)
+```
+
+Now we generate the outcome. The _effect size_ is the effect of `safety`. This is the expected increase (or decrease) in the outcome when a subject is in the treatment group (`safety == 1`). Ideally this is a meaningful effect size. Something that would "make news", so to speak.
+
+In addition to effect size we need to specify random error or noise. This is the variation _between groups_ and _within groups_. This is difficult to really know. One rule of thumb is to take the range of the data and divide by 4 or 6. The range is 5 - 1 = 4. Divide by 4 or 6 and get 1 and 0.67 respectively. So something in the range of 0.67 - 1 would be plausible. 
+
+## Analyze Data
+
+We'll use a linear model to simulate the outcome (`y`). Let the intercept be the expected outcome value of the control group, and let the `safety` coefficient be the expected increase in the outcome for the treated group.
+
+In addition we need to add between group and within group noise. Each subject will get some noise (within) and each group will get some noise (between). The `error_b[grp_id]` syntax repeats the group level error term for each person in the group.
+
+```{r echo=FALSE}
+set.seed(1)
+```
+
+
+```{r}
+error_b <- rnorm(17*2, mean = 0, sd = 0.7)
+error_w <- rnorm(17*4, mean = 0, sd = 0.7)
+y <- 3 + 0.6*(safety == 1) + error_b[grp_id] + error_w
+y <- round(y)
+# cap at 1 - 5
+y <- ifelse(y < 1, 1, y)
+y <- ifelse(y > 5, 5, y)
+
+```
+
+```{r}
+hist(y)
+```
+
+Quick peek at the data:
+
+```{r}
+head(data.frame(grp_id, safety, y), n = 12)
+```
+
+I have no idea if those outcomes are plausible. They seem low and I have a feeling the between and within group noise is maybe too high.
+
+Now analyze the data using a multilevel model. For this we can use the `lmer` function in the `lme4` package. To get p-values, we need to use the `lmerTest` package. The model syntax, `y ~ safety + (1|grp_id)`, says model `y` as a function of `safety` and let the intercept (`1`) be conditional on `grp_id`. This allows us to accommodate variation between groups. 
+
+We fit the model, save as `m` and check to see if the p-value is less than 0.05. (0.05 is just convention; can also use 0.01, 0.005, etc.)
+
+```{r message=FALSE}
+library(lmerTest)
+m <- lmer(y ~ safety + (1|grp_id))
+summary(m, corr = F)
+```
+
+The `Std.Dev.` column under Random Effects is the models attempt to estimate the within and between group error. It gets fairly close to the "true" value of 0.7 for both. The `safety` coefficient is estimated to be 0.64 with a standard error of about 0.24, very close to the "true" effect size. In addition the p-value is less than the conventional 0.05 cutoff. We would correctly reject the null of no safety effect.
+
+For power analysis we can extract the p-value and check if it's less than 0.05.
+
+```{r}
+coef(summary(m))['safety', 'Pr(>|t|)'] < 0.05
+
+```
+
+## Simulate and Analyze many times
+
+That's one result. Let's do it 250 times and see the proportion of times we reject the null of no association. The proportion is an estimate of power. We can use the `replicate()` function to do this. The resulting `sim` object will be a vector of TRUE/FALSE values. Taking the mean of T/F values returns the proportion of TRUES. (NOTE: I'm doing 250 in the interest of time. It's probably better to do a 1000.)
+
+```{r warning=FALSE}
+sim <- replicate(n = 250, expr = {
+  error_b <- rnorm(17*2, mean = 0, sd = 0.7)
+  error_w <- rnorm(17*4, mean = 0, sd = 0.7)
+  y <- 3 + 0.6*(safety == 1) + error_b[grp_id] + error_w
+  y <- round(y)
+  # cap at 1 - 5
+  y <- ifelse(y < 1, 1, y)
+  y <- ifelse(y > 5, 5, y)
+  m <- lmer(y ~ safety + (1|grp_id))
+  coef(summary(m))['safety', 'Pr(>|t|)'] < 0.05
+  })
+mean(sim)
+```
+
+The power is not especially high. We would like it higher than 0.80, preferably above 0.90. Remember this is assuming our effect size and variation estimates are plausible. Perhaps the within group variation should be a little smaller. Below we drop it to 0.35 and rerun the simulation.
+
+```{r warning=FALSE}
+sim <- replicate(n = 250, expr = {
+  error_b <- rnorm(17*2, mean = 0, sd = 0.7)
+  error_w <- rnorm(17*4, mean = 0, sd = 0.35)
+  y <- 3 + 0.6*(safety == 1) + error_b[grp_id] + error_w
+  y <- round(y)
+  # cap at 1 - 5
+  y <- ifelse(y < 1, 1, y)
+  y <- ifelse(y > 5, 5, y)
+  m <- lmer(y ~ safety + (1|grp_id))
+  coef(summary(m))['safety', 'Pr(>|t|)'] < 0.05
+  })
+mean(sim)
+```
+
+The power is slightly higher but not especially so.
+
+What if we also assume the effect size is 0.9 instead of 0.6?
+
+```{r warning=FALSE}
+sim <- replicate(n = 250, expr = {
+  error_b <- rnorm(17*2, mean = 0, sd = 0.7)
+  error_w <- rnorm(17*4, mean = 0, sd = 0.35)
+  y <- 3 + 0.9*(safety == 1) + error_b[grp_id] + error_w
+  y <- round(y)
+  # cap at 1 - 5
+  y <- ifelse(y < 1, 1, y)
+  y <- ifelse(y > 5, 5, y)
+  m <- lmer(y ~ safety + (1|grp_id))
+  coef(summary(m))['safety', 'Pr(>|t|)'] < 0.05
+  })
+mean(sim)
+```
+
+We now have much higher power and perhaps a better idea of what kind of effect size the study is powered to find.
+
+## R packages
+
+This page has a brief overview of some R packages for multilevel power analysis: https://osf.io/qge2c/wiki/Power%20for%20Multilevel%20Analysis/ 
+
+Here's a demo of how to use the **simr** package. As before we generate the safety indicator and group ids. We save these into a data frame that I named `d`.
+
+```{r}
+grp_id <- rep(1:34, each = 4)
+safety <- rep(c(0, 1), each = 17 * 4)
+d <- data.frame(safety,grp_id)
+```
+
+Now we use the `makeLmer` function to make a model object. The first argument is our intended model: `y ~ safety + (1|grp_id)`. The next argument are the fixed effects (`fixef`). In this case it's 3 and 0.6. 3 is the expected outcome for control, and 0.6 is the estimated _increase_ in outcome for those in the treated group. The `VarCorr` argument takes the estimated between group _variance_. Notice I squared 0.7 to convert our standard deviation estimate to variance. The `sigma` argument is the estimated within group _standard deviation_. 
+
+Then we use the `powerSim` function to run the model 250 times.
+
+```{r message=FALSE}
+library(simr)
+model1 <- makeLmer(y ~ safety + (1|grp_id), 
+                   fixef=c(3,0.6), 
+                   VarCorr=0.7^2, 
+                   sigma=0.35, 
+                   data=d)
+# progress = FALSE suppresses progress bar
+powerSim(model1, fixed("safety", "t"), nsim=250,
+         progress = FALSE)
+
+```
+
+This is sort of the same as what we got by doing it "by hand" above with an effect of 0.6 and within standard deviation of 0.35. I suspect the main reason it's higher is become the model is generating data with decimals as opposed to discrete values of 1, 2, 3, 4, and 5.

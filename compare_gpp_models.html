@@ -9,9 +9,11 @@
 <meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
 
 
+<meta name="author" content="Clay Ford" />
 
+<meta name="date" content="2025-01-15" />
 
-<title>UVA StatLab Statistical Notes</title>
+<title>Comparing GPP models</title>
 
 <script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
 // be compatible with the behavior of Pandoc < 2.8).
@@ -348,182 +350,135 @@ display: none;
 
 
 
-<h1 class="title toc-ignore">UVA StatLab Statistical Notes</h1>
+<h1 class="title toc-ignore">Comparing GPP models</h1>
+<h4 class="author">Clay Ford</h4>
+<h4 class="date">2025-01-15</h4>
 
 </div>
 
 
-<div id="reports-generated-for-various-consultations-for-the-uva-statlab." class="section level3">
-<h3>Reports generated for various consultations for the UVA
-StatLab.</h3>
+<p>First recreate the plots and curves for July 12 that Hannah sent me.
+Read in the data. Notice it needs to be in long format. I manually
+edited the spreadsheet you sent me. The <code>head()</code> function
+prints the first 6 rows of data.</p>
+<pre class="r"><code>library(readxl)
+d &lt;- read_xlsx(&quot;ExampleData.xlsx&quot;, sheet = 2)
+# set morning as baseline level
+d$time &lt;- factor(d$time, levels = c(&quot;morning&quot;, &quot;afternoon&quot;))
+head(d)</code></pre>
+<pre><code>## # A tibble: 6 × 3
+##     par   gpp time   
+##   &lt;dbl&gt; &lt;dbl&gt; &lt;fct&gt;  
+## 1  150.  3.66 morning
+## 2  348.  5.70 morning
+## 3  467.  7.43 morning
+## 4  567   8.92 morning
+## 5  704. 14.7  morning
+## 6  889. 13.5  morning</code></pre>
+<p>Now fit models for morning and afternoon using the <code>nls()</code>
+function. The <code>SSmicen()</code> function is a self-starting <a href="https://en.wikipedia.org/wiki/Michaelis%E2%80%93Menten_kinetics">Michaelis-Menten
+Model</a>. This model is parameterized like the GPP model.</p>
+<p><span class="math display">\[
+Y = \frac{aX}{b + X} = \frac{GPP_{max}X}{KI + X}
+\]</span></p>
+<pre class="r"><code># morning model
+fit_am &lt;- nls(gpp ~ SSmicmen(par, gpp_max, KI), 
+              data = subset(d, time == &quot;morning&quot;))
+fit_am</code></pre>
+<pre><code>## Nonlinear regression model
+##   model: gpp ~ SSmicmen(par, gpp_max, KI)
+##    data: subset(d, time == &quot;morning&quot;)
+## gpp_max      KI 
+##   19.26  573.77 
+##  residual sum-of-squares: 27.33
+## 
+## Number of iterations to convergence: 0 
+## Achieved convergence tolerance: 4.371e-06</code></pre>
+<pre class="r"><code># afternoon model
+fit_pm &lt;- nls(gpp ~ SSmicmen(par, gpp_max, KI), 
+              data = subset(d, time == &quot;afternoon&quot;))
+fit_pm</code></pre>
+<pre><code>## Nonlinear regression model
+##   model: gpp ~ SSmicmen(par, gpp_max, KI)
+##    data: subset(d, time == &quot;afternoon&quot;)
+## gpp_max      KI 
+##   19.83 1514.84 
+##  residual sum-of-squares: 0.623
+## 
+## Number of iterations to convergence: 0 
+## Achieved convergence tolerance: 8.637e-08</code></pre>
+<p>Now recreate the plot.</p>
+<pre class="r"><code>plot(d$par, d$gpp, 
+     col = ifelse(d$time == &quot;morning&quot;, &quot;cornflowerblue&quot;, &quot;salmon&quot;), pch = 19)
+curve((19.26 * x)/(573.77 + x), add = TRUE, 
+      col = &quot;cornflowerblue&quot;)
+curve((19.83 * x)/(1514.84 + x), add = TRUE, 
+      col = &quot;salmon&quot;)
+legend(&quot;topleft&quot;, legend = c(&quot;morning&quot;, &quot;afternoon&quot;), 
+       pch = 19,
+       col = c(&quot;cornflowerblue&quot;, &quot;salmon&quot;))</code></pre>
+<p><img role="img" src="data:image/png;base64,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" width="672" /></p>
+<p>Assessing if the fitted curves are different means comparing the KI
+and GPP<sub>max</sub> values. We can do that by using the time variable
+as an interaction term. For this we use the <code>gnls()</code> function
+from the {nlme} package that comes installed with R. In the
+<code>params</code> argument we state that we want to compare the
+“gpp_max” and “KI” coefficients by “time”. The summary output shows two
+coefficients with “timeafternoon” appended. These are the
+<em>differences</em> in the coefficients.</p>
+<p>The coefficient of 0.568 is the difference in GPP<sub>max</sub>
+values between morning and afternoon. This coefficient has a large
+standard error (8.461) and hence a small test statistic (0.568 / 8.461 =
+0.067). Therefore the p-value is quite large and we conclude we don’t
+have enough evidence to declare the GPP<sub>max</sub> for afternoon
+larger than the one for morning. The same conclusion is drawn for the KI
+coefficient as well.</p>
+<pre class="r"><code>library(nlme)
+fit_both &lt;- gnls(gpp ~ SSmicmen(par, gpp_max, KI), 
+              data = d, 
+              params = list(gpp_max + KI ~ time),
+              start = c(19.5, 0.6, 1000, 1000))
+summary(fit_both)</code></pre>
+<pre><code>## Generalized nonlinear least squares fit
+##   Model: gpp ~ SSmicmen(par, gpp_max, KI) 
+##   Data: d 
+##        AIC      BIC    logLik
+##   69.00377 73.45563 -29.50188
+## 
+## Coefficients:
+##                          Value Std.Error  t-value p-value
+## gpp_max.(Intercept)    19.2625    3.1478 6.119346  0.0000
+## gpp_max.timeafternoon   0.5689    8.4610 0.067236  0.9473
+## KI.(Intercept)        573.7807  227.0225 2.527418  0.0242
+## KI.timeafternoon      941.0561 1091.9500 0.861812  0.4033
+## 
+##  Correlation: 
+##                       g_.(I) gpp_m. KI.(I)
+## gpp_max.timeafternoon -0.372              
+## KI.(Intercept)         0.962 -0.358       
+## KI.timeafternoon      -0.200  0.972 -0.208
+## 
+## Standardized residuals:
+##         Min          Q1         Med          Q3         Max 
+## -1.11499272 -0.46417862 -0.12933482  0.08436811  2.92157204 
+## 
+## Residual standard error: 1.412996 
+## Degrees of freedom: 18 total; 14 residual</code></pre>
+<p>Start values are required for this model. The first and third are for
+the intercepts, which in this case are GPP<sub>max</sub> and KI values
+for the morning group. I basically used a value in between the values
+observed in the individual models above. The second and fourth are the
+differences. I eyeballed the model summaries above and estimated a
+difference in coefficients. For example, 19.8 - 19.2 is about 0.6.</p>
+<div id="references" class="section level2">
+<h2>References</h2>
 <ul>
-<li><p><a href="extract_data_upset_plot.html">Extracting data from UpSet
-Plot</a> (Clay Ford, 2025-04-10)<br />
-How to extract specific interactions from a data frame identified in an
-UpSet plot.</p></li>
-<li><p><a href="tukey_hsd_demo.html">Demo of Tukey HSD</a> (Clay Ford,
-2025-04-02)<br />
-Quick demo of how Tukey HSD corrects p-values for multiple
-comparisons.</p></li>
-<li><p><a href="glm_families_and_links.html">Understanding the log link
-in a Poisson model</a> (Clay Ford, 2025-03-21)<br />
-Why we use the log link with Poisson models (i.e.,
-<code>family = poisson(link = &quot;log&quot;)</code>).</p></li>
-<li><p><a href="investigating_multicollinearity.html">Investigating
-Multicolinearity</a> (Clay Ford, 2025-03-19)<br />
-Investigating multicolinearity and challenging idea of inspecting
-pairwise correlations before fitting a model and dropping highly
-correlated predictors.</p></li>
-<li><p><a href="Correlational_Analysis_in_R.html">analyze correlational
-data with treatments</a> (Clay Ford, 2025-02-03)<br />
-Assessing correlation between multiple sets of variables stratified by a
-treatment variable. Uses the <code>r.test()</code> function from the
-{psych} package.</p></li>
-<li><p><a href="Correlational_Analysis_in_R.html">Repeated Measures
-ANOVA examples</a> (Clay Ford, 2025-01-29)<br />
-Two examples of repeated measures ANOVA: (1) Using raw follow-up data as
-the outcome with baseline as a covariate, and (2) Using change scores as
-the outcome. I prefer the first method.</p></li>
-<li><p><a href="compare_gpp_models.html">Comparing self-starting
-Michaelis-Menten Models</a> (Clay Ford, 2025-01-15)<br />
-How to compare two fitted curves using an interaction in a
-<code>nlme::gnls()</code> model.</p></li>
-<li><p><a href="ggeffects_margin_argument.html">Understanding the
-{ggeffects} predict_response() margin argument</a> (Clay Ford,
-2025-01-10)<br />
-Elaborating on the {ggeffects} vignette, <a href="https://strengejacke.github.io/ggeffects/articles/technical_differencepredictemmeans.html">Difference
-Between Marginalization Methods: The margin Argument</a>.</p></li>
-<li><p><a href="tidyLPA.html">tidyLPA notes</a> (Clay Ford and Lauren
-Brideau, 2024-11-01)<br />
-Notes on using the {tidyLPA} package and how it relates to the {mclust}
-package.</p></li>
-<li><p><a href="mixed-effect_ANOVA.html">Mixed-Effect Modeling for
-ANOVA</a> (Clay Ford, 2024-10-08)<br />
-Demo of implementing ANOVA analysis for multilevel data.</p></li>
-<li><p><a href="using_polycor_hetcor.html">Using polycor::hetcor</a>
-(Clay Ford, 2024-09-27)<br />
-Demonstration of using the <code>hetcor()</code> function in the
-{polycor} package using simulated data.</p></li>
-<li><p><a href="polychoric_and_polyserial_correlations.html">Polyserial
-and Polychoric Correlation</a> (Clay Ford, 2024-09-24)<br />
-An intro to polyserial and polychoric correlation using the {polycor}
-package.</p></li>
-<li><p><a href="term_plots.html">Demo of Term plots</a> (Clay Ford,
-2024-06-25)<br />
-Demonstration of using term plots to detect departures from linearity
-for coefficients. Shows the base R <code>termplot()</code> and
-<code>car::crPlots()</code> functions.</p></li>
-<li><p><a href="cld.html">Compact Letter Displays</a> (Clay Ford,
-2024-03-24)<br />
-How to create and interpret Compact Letter Displays, though <a href="https://stats.stackexchange.com/questions/275832/interpreting-compact-letter-displays-and-tukey-multiple-comparisons-from-glmm#comment829280_275832">some
-people don’t like them</a>.</p></li>
-<li><p><a href="complex_reshaping_example.html">Complex reshaping
-example</a> (Clay Ford, 2024-02-15)<br />
-The data set in question had six different sets of variables that needed
-to be reshaped into “long” format. Each set was collected over five
-waves. This shows how to do the reshaping using
-<code>pivot_longer()</code>.</p></li>
-<li><p><a href="Multivariate_Paired_T_Test.html">Multivariate Paired
-Hotelling T Square Test</a> (Clay Ford, 2024-02-27)<br />
-How to implement a Multivariate Paired Hotelling T Square Test in R and
-SPSS.</p></li>
-<li><p><a href="forced_oneway_anova.html">Forced One-way ANOVA</a> (Clay
-Ford, 2023-12-01)<br />
-Convert a two-way ANOVA into a one-way ANOVA.</p></li>
-<li><p><a href="multilevel_quantile_regression.html">Multilevel Quantile
-Regression</a> (Clay Ford, 2023-10-23)<br />
-Example of Multilevel Quantile Regression using {lqmm} and simulated
-data.</p></li>
-<li><p><a href="dw_nc4_files.html">Data wrangling nc4 files</a> (Clay
-Ford, 2023-10-18)<br />
-Example of extracting values from nc4 object (netCDF) and converting to
-data frame.</p></li>
-<li><p><a href="recoding_example.html">Recoding example</a> (Clay Ford,
-2023-10-06)<br />
-Recoding example using a lookup table.</p></li>
-<li><p><a href="example_analysis.html">Multi-level model example using
-simulated data</a> (Clay Ford, 2023-10-03)<br />
-Example of multi-level model written for someone who was brand new to R.
-Includes demo of {emmeans} and {ggeffects}.</p></li>
-<li><p><a href="consultation_summary_2023-08-28.html">Data wrangling
-consultation</a> (Clay Ford, 2023-08-28)<br />
-Data wrangling tasks: (1) drop any groups with less than 10 rows, (2)
-drop rows with runs of zeroes greater than or equal to 5.</p></li>
-<li><p><a href="split_violin_plots.html">Split violin plots</a> (Clay
-Ford, 2022-10-18)<br />
-Demo of how to create split violin plots using
-<code>introdataviz::geom_split_violin()</code></p></li>
-<li><p><a href="stats_filter_function.html">The stats::filter()
-function</a> (Clay Ford, 2022-10-12)<br />
-How to use the the base R <code>filter()</code> function to calculate
-moving averages.</p></li>
-<li><p><a href="logistic_regression_interactions.html">Logistic
-regression interactions</a> (Clay Ford, 2022-09-19)<br />
-How to interpret and visualize 2-level categorical variable interactions
-in a logistic regression model.</p></li>
-<li><p><a href="nested_anova.html">Nested Factorial Experiment</a> (Clay
-Ford, 2022-09-19)<br />
-Example of a Nested Factorial Experiment from <em>Statistical Models in
-S</em>.</p></li>
-<li><p><a href="adjusted_pvalues_in_R.html">How to adjust p-values using
-R</a> (Clay Ford, 2022-09-13)<br />
-Quick demo of how to use Holm method to adjust p-values.</p></li>
-<li><p><a href="three_approaches_to_logistic_regression_in_R.html">Three
-approaches to logistic regression in R</a> (Clay Ford, 2022-07-18)<br />
-Demo of three ways to fit a logistic regression model in R.</p></li>
-<li><p><a href="mediation_analysis_ttest.html">Comparing a mediation
-analysis and with a t-test</a> (Clay Ford, 2022-05-25)<br />
-The difference in means from a t-test is the “Total Effect” in mediation
-analysis.</p></li>
-<li><p><a href="large_CIs.html">Explaining large confidence
-intervals</a> (Clay Ford, 2022-04-05)<br />
-Student wondered why confidence intervals on marginal means were so
-large. Due to small estimated degrees of freedom.</p></li>
-<li><p><a href="nomogram_demo.html">Nomogram demo</a> (Clay Ford,
-2022-03-31)<br />
-This demonstration is a modification of the example available on the
-<code>nomogram()</code> help page from the {rms} package. It
-demonstrates a nomogram for a logistic regression model using simulated
-data.</p></li>
-<li><p><a href="robustness_of_t-test.html">Robustness of t-test</a>
-(Clay Ford, 2022-01-07)<br />
-Simulation demonstrating robustness of t-test to non-normal
-data.</p></li>
-<li><p><a href="finding_peaks.html">Identifying peaks in a line plot</a>
-(Clay Ford, 2021-06-14)<br />
-One possible method of identifying peaks in a line plot using the
-<code>findpeaks()</code> function in the {pracma} package.</p></li>
-<li><p><a href="bootstrap_example.html">Bootstrapped diff in means</a>
-(Clay Ford, 2021-12-11)<br />
-Example of implementing a bootstrapped difference in means as an
-alternative to a t-test using the {boot} package in R.</p></li>
-<li><p><a href="power_analysis_simulation.html">Multilevel Model power
-analysis</a> (Clay Ford, 2021-10-04)<br />
-Power analysis for a multilevel model with a Likert outcome ranging from
-1-5 and a simple binary treatment variable. Presents two approaches: (1)
-manual simulation, and (2) the {simr} package.</p></li>
-<li><p><a href="logistic_regression_example.html">logistic regression
-for a 2x2 table</a> (Clay Ford, 2021-06-09)<br />
-Example of using logistic regression to get odds ratio, confidence
-interval on OR, and the p-value testing null if OR is 1.</p></li>
-<li><p><a href="comparing_slopes.html">Comparing Trends with ANCOVA</a>
-(Clay Ford, 2021-04-22)<br />
-Comparing slopes via ANCOVA and {emmeans} using simulated data.</p></li>
-<li><p><a href="glmm.html">Demo of Generalized Linear Mixed Model</a>
-(Clay Ford, 2021-02-12)<br />
-A demonstration of binomial GLMM using simulated data.</p></li>
-<li><p><a href="cramers_v.html">CIs for Cramer’s V</a> (Clay Ford,
-2021-01-20)<br />
-Demo of calculating CIs for Cramer’s V for a small sample.</p></li>
-<li><p><a href="normality_is_for_residuals.html">Normality is for
-Residuals</a> (Clay Ford, 2020-11-02)<br />
-The normality assumption in linear modeling (multiple regression) is on
-the residuals, not the dependent or independent variables.</p></li>
-<li><p><a href="stepwise_simulation.html">Stepwise Model Selection
-performing poorly</a> (Clay Ford, 2020-09-01)<br />
-Demo of stepwise model selection performing poorly in the presence of
-collinearity. <a href="https://discourse.datamethods.org/t/reference-collection-to-push-back-against-common-statistical-myths/1787#p-4596-stepwise-variable-selection-dont-do-it-7">Stepwise
-selection should be avoided anyway</a>.</p></li>
+<li><a href="https://stackoverflow.com/questions/59036555/nls-sslogis-using-a-dummy-variable-as-an-interaction-term-to-compare-two-sigmoi" class="uri">https://stackoverflow.com/questions/59036555/nls-sslogis-using-a-dummy-variable-as-an-interaction-term-to-compare-two-sigmoi</a></li>
+<li>R Core Team (2024). <em>R: A Language and Environment for
+Statistical Computing</em>. R Foundation for Statistical Computing,
+Vienna, Austria. <a href="https://www.R-project.org/" class="uri">https://www.R-project.org/</a>.</li>
+<li>Pinheiro JC and Bates DM (2000). <em>Mixed-Effects Models in S and
+S-PLUS</em>. Springer.</li>
 </ul>
 </div>
 

@@ -1,0 +1,109 @@
+---
+title: "Comparing Trends in R"
+author: "Clay Ford"
+date: "4/22/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Question from Dilhara
+
+_How can we see if there’s a difference between the trends over the years for these two groups? What will be suitable? ANOVA or T-tests ? How to pass Assumptions tests?_
+
+My answer: use an Analysis of Covariance (ANCOVA) and test for difference in slopes.
+
+## Simulate Data
+
+I tried to simulate some data somewhat similar to yours. The details are not important but I include the code in case you're interested. One thing I do is make year a number instead of categories of "97-00", "01-02", etc.
+
+```{r}
+# counts
+intl_n <- c(11, 9, 19, 14, 15, 3)
+us_n <- c(10, 28, 47, 46, 25, 13)
+# data values
+grp <- c("intl", "us")
+yr <- 1:6
+# simulate data
+year <- c(rep(yr, intl_n), rep(yr, us_n))
+group <- rep(grp, c(sum(intl_n), sum(us_n)))
+
+```
+
+Simulating a count is somewhat tricky. Below I simulate a count for **which all ANCOVA assumptions will be satisfied**! Notice the formula is basically 2 lines:
+
+- a line for "intl" that has intercept = 4 and a slope = 1.5
+- a line for "us" that has intercept = 6 and a slope = 0.5
+
+Notice the line generated depends whether `group=="us"`. I also a bit of "noise" by way of drawing random values from a Normal distribution with mean = 0 and a standard deviation of 2. These are two key ANCOVA assumptions: constant variance and normally distributed residuals or noise.
+
+```{r}
+count <- 4 + 2*(group=="us") + 1.5*year + -1*year*(group=="us") + 
+  rnorm(n = sum(intl_n) + sum(us_n), mean = 0, sd = 2)
+# create a data frame of our simulated data and round count to whole number
+d <- data.frame(count = round(count), year, group)
+```
+
+## Quick visual of data
+
+It's not quite the same as your data but close enough for a demo. The smooth straight line represents the trend for each group. It's visibly different.
+
+```{r}
+library(ggplot2)
+ggplot(d) +
+  aes(x = year, y = count) +
+  geom_jitter(width = 0.1, height = 0) +
+  geom_smooth(method = "lm") +
+  facet_wrap(~group)
+```
+
+## Analysis
+
+Are the trends different, and if so, how different are they?
+
+Use the `lm` function to run the ANCOVA. Truth be told, ANCOVA is simply regression with one numeric predictor and one categorical predictor.
+
+A significant interaction is good sign the trends are honestly different. We can see that with the `anova` function, which returns the familiar ANOVA table, and with the `summary` function which summarizes the regression result. Again ANCOVA and ANOVA are both just special cases of regression.
+
+```{r}
+m <- lm(count ~ year*group, data = d)
+anova(m)
+summary(m)
+```
+
+The trends appear different. How different are they? We can analyze that with the emtrends function from the emmeans package. (You may need to install the emmeans package.)
+
+The result says the difference in slopes is about 1.2. It also estimates the trend for "intl" to be about 1.5 and the trend for "us" to be about 0.3. Notice these are close to the "true" estimates we used to generate the data.
+
+```{r}
+library(emmeans)
+emtrends(m, pairwise ~ group, var = "year", infer = TRUE)
+```
+
+We can calculate a 95% confidence interval for the estimated difference of 1.2.
+
+```{r}
+1.2 + (c(-1, 1) * 1.2 * 0.203 * qt(0.025, df = 236, lower.tail = FALSE))
+```
+
+## Verify assumptions
+
+The easiest way to do this is with diagnostic plots. Simply call `plot` on the model object. By default the 3 most "extreme" measures will be labeled, even if they're not extreme relative to the rest of the data.
+
+**Check constant variance**. This plot looks perfect. We want a fairly straight red line and even vertical scatter of points.
+
+```{r}
+plot(m, which = 3)
+```
+
+**Check normality of residuals**. This plot looks perfect. We want the points to fall close to the diagonal line.
+
+```{r}
+plot(m, which = 2)
+```
+
+Both plots look great because I simulated the data according to what ANOVA/ANCOVA models assume.
+
+<br>

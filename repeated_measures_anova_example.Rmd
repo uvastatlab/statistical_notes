@@ -1,0 +1,196 @@
+---
+title: "Repeated Measures ANOVA examples"
+author: "Clay Ford"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r echo=FALSE}
+# simulate data
+# simulate data
+n <- 33
+id <- 1:n
+trt <- c("ctrl", "biopod")
+time <- 1:10
+d <- expand.grid(id = id, time = time, trt = trt)
+d <- d[order(d$id, d$trt, d$time),]
+rownames(d) <- NULL
+
+# generate baseline values
+set.seed(1)
+ctrl_b <- rexp(n, rate = 0.1)
+biopod_b <- rexp(n, rate = 0.1)
+d$baseline <- ifelse(d$trt == "ctrl", ctrl_b[d$id], biopod_b[d$id])
+
+# subject random effects
+z <- rnorm(n, mean = 0, sd = 1.3)
+
+# generate outcome values
+d$eeg <- (0.5 + z[d$id]) + d$time * 0.3 + (d$trt == "biopod") * 0.4 +
+  d$time * (d$trt == "biopod") * -1.3 +
+  rnorm(nrow(d), mean = 0, sd = 3)
+
+# rescale eeg values to be from 0.5 to 35
+d$eeg <- scales::rescale(d$eeg, to = c(0.5, 35))
+
+# calculate change scores
+d$eeg_change <- d$eeg - d$baseline
+```
+
+Two examples of repeated measures ANOVA:
+
+1. Using raw follow-up data as the outcome with baseline as a covariate
+2. Using change scores as the outcome
+
+I think the first one is easier to interpret. It's also the method recommended by statisticians. See [here](https://discourse.datamethods.org/t/reference-collection-to-push-back-against-common-statistical-myths/1787#analyzing-change-measures-in-rcts-4) and [here](https://www.fharrell.com/post/errmed/#change).
+
+## The data
+
+The data is simulated. See code at end of document. Here are the first few records. Notice the data is in "long" format. There is one record per person, per time, per treatment.
+
+```{r}
+head(d, n = 12)
+```
+
+## Visualize data
+
+First visualize the raw data. The `mapping = aes(group = 1)` argument to `geom_smooth()` allows us to estimate a trend line for all the data in each facet.
+
+```{r}
+library(ggplot2)
+ggplot(d) +
+  aes(x = time, y = eeg, group = id) +
+  geom_line() +
+  geom_smooth(mapping = aes(group = 1), method = "lm") +
+  facet_wrap(~trt) +
+  labs(y = "raw EEG measure")
+```
+
+Now visualize the change from baseline data. It's more variable. The trend line shows how the change in baseline changes over time. It's not as easy to interpret as the previous plot (in my opinion).
+
+```{r}
+ggplot(d) +
+  aes(x = time, y = eeg_change, group = id) +
+  geom_line() +
+  geom_smooth(mapping = aes(group = 1), method = "lm") +
+  facet_wrap(~trt) +
+  labs(y = "change from baseline")
+```
+
+## Analyze the data
+
+### (1) analyze raw follow-up data using baseline as covariate
+
+In the first approach I model the raw eeg value and control from baseline by including it as a covariate.
+
+```{r message=FALSE}
+# repeated measures 2-way ANOVA with an interaction
+library(lmerTest)
+m <- lmer(eeg ~ baseline + time + trt + time:trt + (1|id), data = d)
+summary(m, corr = F)
+anova(m)
+```
+
+The interaction is significant. This says effect of time depends on treatment.
+
+Now estimate the different trends over time for each treatment. This basically estimates the slope of the lines we see in the visualization above. It appears eeg readings for biopod decrease over time. 
+
+```{r message=FALSE}
+library(emmeans)
+emtrends(m, specs = "trt", var = "time")
+```
+
+Now compare difference in eeg trends. The difference in trends is reliably different from 0. The trend for biopod is much lower than the trend for ctrl.
+
+```{r}
+emtrends(m, specs = "trt", var = "time") |> 
+  pairs(reverse = TRUE)
+```
+
+
+Finally compare eeg between treatments _at each time_. These are differences in eeg scores at each time between treatments. Not sure how useful this is, but this is similar to running 10 paired t-tests.
+
+```{r}
+emmeans(m, specs = ~ trt|time, at = list(time = 1:10)) |> 
+  pairs()
+```
+
+### (2) analyze change scores
+
+
+
+```{r}
+# repeated measures 2-way ANOVA with an interaction;
+# the outcome is change from baseline!
+m2 <- lmer(eeg_change ~ time + trt + time:trt + (1|id), data = d)
+summary(m2, corr = F)
+anova(m2)
+```
+
+
+Again, the interaction is significant. This says effect of time on change from baseline depends on treatment.
+
+
+Now estimate the different trends in change from baseline over time for each treatment. The change from baseline trend for biopod decreases over time.
+
+```{r}
+emtrends(m2, specs = "trt", var = "time")
+```
+
+
+Next compare the change from baseline trends between treatments. The trend for change in baseline for biopod is smaller than ctrl.
+
+```{r}
+emtrends(m2, specs = "trt", var = "time") |> 
+  pairs(reverse = TRUE)
+```
+
+
+Finally compare change from baseline between treatments at each time. These are effectively change in changes, or difference in differences. 
+
+```{r}
+emmeans(m2, specs = ~ trt|time, at = list(time = 1:10)) |> 
+  pairs()
+```
+
+## Conclusion
+
+In this case, we come to the same basic conclusion: eeg is decreasing over time for the biopod group. I find analyzing the raw follow-up data easier to interpret and understand than working with change scores. But your audience may prefer seeing change scores. 
+
+## How the data was simulated
+
+```{r eval=FALSE}
+n <- 33 
+id <- 1:n  
+trt <- c("ctrl", "biopod")
+time <- 1:10
+d <- expand.grid(id = id, time = time, trt = trt)
+d <- d[order(d$id, d$trt, d$time),] # sort by id, then trt, then time
+rownames(d) <- NULL                 # reset row numbering
+
+# generate baseline values from an exponential dist'n (positive and skew)
+set.seed(1)
+ctrl_b <- rexp(n, rate = 0.1)
+biopod_b <- rexp(n, rate = 0.1)
+d$baseline <- ifelse(d$trt == "ctrl", ctrl_b[d$id], biopod_b[d$id])
+
+# subject-specific random effects
+z <- rnorm(n, mean = 0, sd = 1.3)
+
+# generate outcome values
+d$eeg <- (0.5 + z[d$id]) + d$time * 0.3 + (d$trt == "biopod") * 0.4 +
+  d$time * (d$trt == "biopod") * -1.3 +
+  rnorm(nrow(d), mean = 0, sd = 3)
+
+# rescale eeg values to be from 0.5 to 35
+d$eeg <- scales::rescale(d$eeg, to = c(0.5, 35))
+
+# calculate change scores
+d$eeg_change <- d$eeg - d$baseline
+```
+

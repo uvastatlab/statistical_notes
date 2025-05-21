@@ -1,0 +1,82 @@
+---
+title: "Multilevel Quantile Regression"
+author: "Clay Ford"
+format:
+  html:
+    embed-resources: true
+---
+
+## Generate data
+
+```{r}
+#| code-fold: true
+#| code-summary: "Show the code"
+n <- 12
+id <- 1:n
+ln <- 1:2
+roi <- 1:3
+rep <- 1:50
+d <- expand.grid(rep = rep, roi = roi, ln = ln, id = id)
+d$trt <- ifelse(d$id < 7, 1, 0)
+
+d$id_ln <- as.numeric(interaction(d$id, d$ln))
+d$id_ln_roi <- as.numeric(interaction(d$id, d$ln, d$roi))
+set.seed(1)
+e <- rnorm(n = nrow(d), sd = ifelse(d$trt == 0,0.5,2*0.5))
+e_id <- rnorm(n = n, sd = 0.8)
+e_id_ln <- rnorm(n = n*2, sd = 0.5)
+e_id_ln_roi <- rnorm(n = n*2*3, sd = 0.7)
+d$y <- 4 + 0.4*(d$trt == 1) + 
+  e_id[d$id] + 
+  e_id_ln[d$id_ln] +
+  e_id_ln_roi[d$id_ln_roi] +
+  e
+d$id_ln <- NULL
+d$rep <- NULL
+d$trt <- factor(d$trt)
+d$roi <- factor(d$roi)
+d <- d[,c("id", "ln", "roi", "trt", "y", "id_ln_roi")]
+```
+
+## Inspect and visualize data
+
+- id = subject id
+- ln = lymph node
+- roi = region of interest
+- trt = treatment indicator (0 = control/1 = treated)
+- y = dependent variable
+- id_ln_roi = grouping indicator (id/ln/roi groups)
+
+```{r}
+head(d)
+```
+
+Plot of y versus treatment group, colored by roi.
+
+```{r}
+library(ggplot2)
+ggplot(d) +
+  aes(x = trt, y = y, color = roi) +
+  geom_jitter(width = 0.2, height = 0)
+```
+
+Summary of y grouped by trt.
+
+```{r}
+tapply(d$y, d$trt, summary)
+```
+
+
+## Multilevel Quantile Model
+
+Model the 0.75 quantile (ie, 75th percentile) as a function of treatment, with a random intercept for the id/ln/roi group. To model a different quantile, change the `tau` argument. 
+
+```{r}
+library(lqmm)
+fit.lqmm <- lqmm(y ~ trt, random = ~ 1 , 
+                 group = id_ln_roi,	
+                 data = d, tau = 0.75)
+summary(fit.lqmm)
+```
+
+We estimate the 75th quantile of treatment is about 1.06 higher than the 75th quantile of the control group.

@@ -1,0 +1,71 @@
+---
+title: "Robustness of t-test"
+author: "Clay Ford"
+date: "1/7/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Let's simulate data similar to what you sent me via email on 2022 Jan 7.
+
+```{r}
+n <- 1800
+# the following are based on eyeballing the plot you sent me
+probs <- c(25, 50, 75, 200, 325, 225)/
+  sum(c(25, 50, 75, 200, 325, 225))
+
+ctrl <- sample(1:6, size = n/2, replace = TRUE, 
+               prob = probs)
+intv <- sample(1:6, size = n/2, replace = TRUE, 
+               prob = probs)
+d <- data.frame(score = c(ctrl, intv), 
+                group = rep(c("control", "intervention"), each = n/2))
+```
+
+Create plot
+
+```{r}
+library(ggplot2)
+ggplot(d) +
+  aes(x = score, fill = group) +
+  geom_bar(position = "dodge") +
+  scale_fill_brewer(palette = "Paired") +
+  scale_x_continuous(breaks = 1:6)
+```
+
+Run Welch t-test
+
+```{r}
+t.test(score ~ group, data = d)
+```
+
+Ideally this should FAIL TO REJECT the null of no difference between means because I simulated the data for each group from the same distribution. The p-value should be much larger than 0.05.
+
+Now both distributions are distinctly non normal as seen in the plot above. However the t-test comparing the means between these two distributions is _robust to this assumption_. That means it still works. It should falsely reject the null of no difference only about 5% of the time. 
+
+Below we create a function that simulates two data sets from the same non-normal distribution, runs a Welch t-test, and returns TRUE if the p-value is less than 0.05, and FALSE otherwise. 
+
+```{r}
+ttest_function <- function(n = 1800){
+  ctrl <- sample(1:6, size = n/2, replace = TRUE, 
+               prob = probs)
+  intv <- sample(1:6, size = n/2, replace = TRUE, 
+               prob = probs)
+  d <- data.frame(score = c(ctrl, intv), 
+                group = rep(c("control", "intervention"), each = n/2))
+  t.test(score ~ group, data = d)$p.value < 0.05
+}
+  
+```
+
+Now we replicate the function 2000 times and calculate the proportion of times it rejects the null of no difference (ie, Type 1 error, rejecting the null when it's really true.). 
+
+```{r}
+tests <- replicate(n = 2000, ttest_function(n = 1800))
+mean(tests)
+```
+
+We see that it performs well and that the Type 1 error is close to 0.05 The t-test in this case is robust to departures from normality.

@@ -1,0 +1,76 @@
+---
+title: "Comparing GPP models"
+author: "Clay Ford"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+First recreate the plots and curves for July 12 that Hannah sent me. Read in the data. Notice it needs to be in long format. I manually edited the spreadsheet you sent me. The `head()` function prints the first 6 rows of data.
+
+```{r}
+library(readxl)
+d <- read_xlsx("ExampleData.xlsx", sheet = 2)
+# set morning as baseline level
+d$time <- factor(d$time, levels = c("morning", "afternoon"))
+head(d)
+```
+
+Now fit models for morning and afternoon using the `nls()` function. The `SSmicen()` function is a self-starting [Michaelis-Menten Model](https://en.wikipedia.org/wiki/Michaelis%E2%80%93Menten_kinetics). This model is parameterized like the GPP model.
+
+$$
+Y = \frac{aX}{b + X} = \frac{GPP_{max}X}{KI + X}
+$$
+
+```{r}
+# morning model
+fit_am <- nls(gpp ~ SSmicmen(par, gpp_max, KI), 
+              data = subset(d, time == "morning"))
+fit_am
+
+# afternoon model
+fit_pm <- nls(gpp ~ SSmicmen(par, gpp_max, KI), 
+              data = subset(d, time == "afternoon"))
+fit_pm
+```
+
+Now recreate the plot.
+
+```{r}
+plot(d$par, d$gpp, 
+     col = ifelse(d$time == "morning", "cornflowerblue", "salmon"), pch = 19)
+curve((19.26 * x)/(573.77 + x), add = TRUE, 
+      col = "cornflowerblue")
+curve((19.83 * x)/(1514.84 + x), add = TRUE, 
+      col = "salmon")
+legend("topleft", legend = c("morning", "afternoon"), 
+       pch = 19,
+       col = c("cornflowerblue", "salmon"))
+```
+
+Assessing if the fitted curves are different means comparing the KI and GPP~max~ values. We can do that by using the time variable as an interaction term. For this we use the `gnls()` function from the {nlme} package that comes installed with R. In the `params` argument we state that we want to compare the "gpp_max" and "KI" coefficients by "time". The summary output shows two coefficients with "timeafternoon" appended. These are the _differences_ in the coefficients. 
+
+The coefficient of 0.568 is the difference in GPP~max~ values between morning and afternoon. This coefficient has a large standard error (8.461) and hence a small test statistic (0.568 / 8.461 = 0.067). Therefore the p-value is quite large and we conclude we don't have enough evidence to declare the GPP~max~ for afternoon larger than the one for morning. The same conclusion is drawn for the KI coefficient as well.  
+
+```{r}
+library(nlme)
+fit_both <- gnls(gpp ~ SSmicmen(par, gpp_max, KI), 
+              data = d, 
+              params = list(gpp_max + KI ~ time),
+              start = c(19.5, 0.6, 1000, 1000))
+summary(fit_both)
+```
+
+Start values are required for this model. The first and third are for the intercepts, which in this case are GPP~max~ and KI values for the morning group. I basically used a value in between the values observed in the individual models above. The second and fourth are the differences. I eyeballed the model summaries above and estimated a difference in coefficients. For example, 19.8 - 19.2 is about 0.6.
+
+
+## References
+
+- <https://stackoverflow.com/questions/59036555/nls-sslogis-using-a-dummy-variable-as-an-interaction-term-to-compare-two-sigmoi>
+- R Core Team (2024). _R: A Language and Environment for  Statistical Computing_. R Foundation for Statistical
+  Computing, Vienna, Austria.
+  <https://www.R-project.org/>.
+- Pinheiro JC and Bates DM (2000). _Mixed-Effects Models in S and S-PLUS_. Springer.

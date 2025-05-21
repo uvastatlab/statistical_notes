@@ -1,0 +1,148 @@
+---
+title: "Correlational Analysis in R"
+author: "Clay Ford"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Email from Jemima
+
+I was wondering if you knew of a way to analyze correlational data with treatments in R? I've written the code for without treatments but I'm unsure of how to make R analyze it via different treatments. The treatments (3) are in the column "Salt"
+
+## Read in data 
+
+```{r message=FALSE}
+library(readxl)
+library(ggplot2)
+library(psych)
+
+licor <- read_excel("Licor Data for R.xlsx")
+```
+
+Subset data for variables of interest and include treatment variable
+
+```{r}
+d <- licor[,c("A","Ca","Ci","gsw","Salt")]
+summary(d) # check for missings
+table(d$Salt) # sample sizes within treatment groups
+```
+
+## Visualize with scatterplots and trend lines
+
+Get all combinations of two variables
+
+```{r}
+var_pairs <- combn(x = c("A","Ca","Ci","gsw"), m = 2)
+var_pairs
+```
+
+Write a function to help us make the plots for all three levels of Salt.
+
+```{r}
+f <- function(df, x, y){
+  ggplot(df) +
+    aes(x = .data[[x]], y = .data[[y]]) +
+    geom_point() +
+    geom_smooth() +
+    facet_wrap(~Salt) +
+    ggtitle(paste(y, "vs", x))
+}
+```
+
+
+Apply the function to the variable pairs.
+
+```{r message=FALSE}
+apply(var_pairs, 2, function(x)f(df = d, x = x[1], y = x[2]))
+```
+
+It looks like Ci vs A and gsw vs A are the only two pairs that exhibit any correlation, though it's not clear there are any differences between the three levels of Salt.
+
+
+
+## Single correlation test 
+
+The code in this section and the next come from the help page for the `r.test()` function in the {psych} package.
+
+Perform a single correlation test for gsw vs A where Salt = control and Salt = high. When calculating correlations, I set `method = "spearman"` since the plots showed some non-linearity.
+
+```{r}
+# correlation between A and gsw given Salt == "control"
+r1 <- cor.test(~ A + gsw, data = d, subset = Salt == "control", 
+               method = "spearman")
+
+# correlation between A and gsw given Salt == "high"
+r2 <- cor.test(~ A + gsw, data = d, subset = Salt == "high", 
+         method = "spearman")
+
+# view the correlations
+cbind("Salt = control" = r1$estimate, "Salt = high" = r2$estimate)
+```
+
+Now run test to see if the difference in correlations is plausible using the `r.test()` function. 
+
+```{r}
+r.test(n = sum(d$Salt == "control"), r12 = r1$estimate, r34 = r2$estimate, 
+       n2 = sum(d$Salt == "high"))
+```
+
+The probability of seeing a difference this big (or bigger) between the correlations, assuming there is no real difference between the two, is pretty high (p = 0.57). We fail to conclude there is any important difference between the two correlations. 
+
+## Compare two correlation matrices
+
+Compare all pairs of variables where Salt = control and Salt = high. This is probably a little more efficient than doing two at a time. 
+
+First we create the two correlation matrices and view the correlations. To do this I use the `lowerUpper()` function from the {psych} package. The R1 correlations are displayed below the diagonal, while the R2 correlations are displayed above the diagonal.
+
+```{r}
+# correlation matrix given Salt == "control"
+R1 <- cor(d[d$Salt == "control", -5])
+
+# correlation matrix given Salt == "high"
+R2 <- cor(d[d$Salt == "high", -5])
+
+# show the two correlations 
+round(lowerUpper(lower = R1, upper = R2), 2)
+```
+
+For example, we see the correlation between Ci vs A is -0.63 when salt = control (lower corner) and -0.74 when salt = high (upper corner)
+
+Now run the test to compare all correlations at once.
+
+```{r}
+# compare the correlation matrices
+test <- r.test(n=sum(d$Salt == "control"), r12 = R1, r34 = R2, 
+       n2 = sum(d$Salt == "high"))
+
+# view the p-values, rounded to 3 decimal places
+round(test$p, 3)
+```
+
+The difference in correlations between Ci vs A may be of interest (p = 0.03). However, given that we ran six different hypothesis tests we may want to adjust the p-values to protect against false positives.
+
+Below we extract the six p-values and use `p.adjust()` to adjust the p-values using the default Holm method. We then insert the adjusted p-values into the upper corner of the p-value matrix, but leave the original p-values in the lower corner.
+
+```{r}
+# show the p values of the difference between the two matrices
+adjusted <- p.adjust(test$p[upper.tri(test$p)])
+both <- test$p
+both[upper.tri(both)] <- adjusted
+
+# The lower off diagonal are the raw p-values, 
+# the upper off diagonal are the adjusted p-values
+round(both,digits=2)
+```
+
+After adjustment, the p-value comparing the correlations for Ci vs A is now 0.18. 
+The code above can be re-run to compare Salt = "control" to Salt = "low", or Salt = "low" to Salt = "high". Judging from the plots, it seems unlikely any important differences between correlations will be detected. 
+
+## References
+
+- R Core Team (2024). _R: A Language and Environment for Statistical Computing_. R Foundation for Statistical Computing, Vienna, Austria. <https://www.R-project.org/>.
+- Revelle, W. (2024). _psych: Procedures for Psychological, Psychometric, and Personality Research_. Northwestern University, Evanston, Illinois. R package version 2.4.12, <https://CRAN.R-project.org/package=psych>.
+- Wickham, H. (2016) _ggplot2: Elegant Graphics for Data Analysis_. Springer-Verlag New York.

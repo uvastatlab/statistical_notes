@@ -1,0 +1,93 @@
+---
+title: "Example of bootstrap analysis"
+author: "Clay Ford"
+date: "12/10/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Generate data
+
+First generate some skewed data ~~that's also multimodal~~.
+
+```{r}
+set.seed(9)
+n <- 180
+need1 <- sample(1:6, size = n/2, replace = TRUE, prob = c(1, 1, 1, 3, 4, 3)/14)
+need2 <- sample(1:6, size = n/2, replace = TRUE, prob = c(1, 1, 1, 4, 5, 4)/16)
+grp <- rep(c("ctrl", "int"), each = n/2)
+d <- data.frame(grp, need = c(need1, need2))
+```
+
+## Visualize data
+
+The default `geom_density` settings make the data look multimodal because it's trying very hard to interpolate between discrete values. Therefore it looks quite wiggly. 
+
+```{r}
+library(ggplot2)
+ggplot(d) +
+  aes(x = need, fill = grp) +
+  geom_density(alpha = 0.4)
+```
+
+However we can adjust the bandwidth using the `adjust` argument to make the lines smoother. This basically says "don't try so hard to imagine what's between the discrete values." Higher values lead to smoother estimates.
+
+```{r}
+ggplot(d) +
+  aes(x = need, fill = grp) +
+  geom_density(alpha = 0.4, adjust = 2)
+
+```
+
+A better plot might just be a bar plot since the data is discrete. A density plot is usually better suited for continuous data (ie, data with decimals)
+
+```{r}
+ggplot(d) +
+  aes(x = need, fill = grp) +
+  geom_bar(position = "dodge")
+
+```
+
+These last two plots reveal the data is indeed skewed and perhaps bi-modal, but it definitely gives us a different impression that the first plot. 
+
+## Summarize data
+
+Compare means and medians. Very similar.
+
+```{r}
+tapply(d$need, d$grp, summary)
+```
+
+## Basic analysis
+
+T-test
+
+```{r}
+t.out <- t.test(need ~ grp, data = d)
+t.out$conf.int
+```
+
+
+## Bootstrap analysis
+
+For this we load the boot package that comes with R. We have to write a function that calculates a difference in means. The `d[i,]` represents resampled data. The boot function generates a vector of indices that are resampled row numbers of the data frame. Then it uses those indices to resample the data. The `boot` function applies our function 999 times.
+
+```{r}
+library(boot)
+f <- function(d, i){
+  t <- t.test(need ~ grp, d[i,])
+  diff(t$estimate)
+}
+b.out <- boot(d, f, R = 999)
+```
+
+We can use our boot object to get a bootstrap confidence interval using the `boot.ci` function.
+
+```{r}
+boot.ci(b.out, type = "bca")
+```
+
+Notice the confidence interval is slightly different but the substance of the result is no different than the t-test.

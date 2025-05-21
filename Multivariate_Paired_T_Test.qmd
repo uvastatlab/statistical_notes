@@ -1,0 +1,69 @@
+---
+title: "Multivariate Paired Hotelling T Square Test"
+author: "Clay Ford"
+format:
+  html:
+     embed-resources: true
+---
+
+
+## Read in Data
+
+First read in SPSS data and reshape to "wide" format.
+
+```{r}
+library(haven) # for read_sav() function
+library(tidyr) # for pivot_wider() function
+d <- read_sav("Full Blind Scores.sav")
+
+# add subject id numbers
+d$id <- rep(1:11, 2)
+
+# reshape "wide" so there is a column for with and without tactor shirt
+d_wide <- pivot_wider(d, names_from = Group, 
+                       values_from = MentalDemand:Diagonal_Accuracy)
+```
+
+## Multivariate Paired Hotelling T Square Test 
+
+To analyze this data I think we should use the Multivariate Paired Hotelling T Square Test. This is a multivariate version of the paired t test. Instead of comparing one set of pairs, we compare multiple sets of pairs. This [page at Penn State](https://online.stat.psu.edu/stat505/lesson/7/7.1/7.1.8) presents a nice overview of Multivariate Paired Hotelling T Square Test. Their example uses husband-wife pairs, but it applies to your pairs as well.
+
+To implement this in R, we can use the `Mpaired()` function on the {MVTests} package. We need to create two separate data frames:
+
+1. One with the first measures
+2. One with the second measures
+
+```{r message=FALSE}
+library(MVTests)
+X <- d_wide[,c("Straight_Time_1", "Straight_Accuracy_1", "Side_Time_1",
+                "Side_Accuracy_1", "Diagonal_Time_1", "Diagonal_Accuracy_1")]
+Y <- d_wide[,c("Straight_Time_2", "Straight_Accuracy_2", "Side_Time_2", 
+                "Side_Accuracy_2", "Diagonal_Time_2", "Diagonal_Accuracy_2")]
+```
+
+Then we use the `Mpaired()` function on the two data frames. Save the result and use `summary()` to see test result
+
+```{r}
+result <- Mpaired(T1 = X,T2 = Y)
+summary(result)
+```
+
+The null hypothesis is no difference in the differences. With a p-value of 0.16, we fail to find sufficient evidence to reject this hypothesis. This is not surprising given we are testing 6 sets of differences based on only 11 subjects.
+
+## How to implement in SPSS
+
+We can implement this in SPSS using the MANOVA routine, but we need to do two things first:
+
+1. compute the differences in each set (Straight_Time_1 - Straight_Time_2, Straight_Accuracy_1 - Straight_Accuracy_2, etc)
+2. Manually add an _intercept_ to the data, which is just a column of ones.
+
+Once that's done, open the MANOVA (Multivariate) dialog and add the differences to the Dependent variables field and add the intercept to the Covariates Field.
+
+![](manova_spss.jpg)
+
+Next click the Model button, click the Build Terms radio button, add Intercept to the Model field, and uncheck the "Include intercept in model" box. 
+
+![](manova_spss_2.jpg)
+
+Click continue and click OK. The result is presented under the Multivariate Tests section as "Hotelling's Trace." This replicates the R output above.
+

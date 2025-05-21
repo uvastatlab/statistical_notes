@@ -1,0 +1,77 @@
+---
+title: "logistic regression demo"
+author: "Clay Ford"
+date: "6/9/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Generate data
+
+Let's generate fake data for two groups A and B. If you're in group A, chance of hemetoma is 30%. If you're in group B, chance of hematoma is 50%.
+
+```{r}
+grp <- rep(c("A", "B"), each = 50)
+set.seed(1)
+hematoma <- rbinom(n = 100, size = 1, 
+                   prob = rep(c(0.3, 0.5), each = 50))
+```
+
+## Examine data
+
+Create a cross tabulation. Hematoma = 1 means the subject experienced hematoma.
+
+```{r}
+table(grp, hematoma)
+```
+
+Get proportions. It appears group B has a higher chance of hematoma (0.42 vs 0.32).
+
+```{r}
+prop.table(table(grp, hematoma), margin = 1)
+```
+
+Calculating odds ratio can be done "by hand"
+
+```{r}
+# save table of proportions
+tab <- prop.table(table(grp, hematoma), margin = 1)
+grpA_odds <- tab[1,2]/(1 - tab[1,2])
+grpB_odds <- tab[2,2]/(1 - tab[2,2])
+
+# odds ratio
+grpB_odds/grpA_odds
+```
+
+Appears group B odds for hematoma are about 54% higher than the odds of hematoma for group A.
+
+## Logistic regression for CI and p-value
+
+We can use logistic regression to get odds ratio, confidence interval, and the p-value testing null if odds ratio is 1. To do this we use the `glm` function with `family = binomial`.
+
+```{r}
+m <- glm(hematoma ~ grp, family = binomial)
+```
+
+Odds ratio is same as we got by hand. Need to exponentiate the coefficient. Some statistics programs return this automatically.
+
+```{r}
+exp(coef(m)["grpB"])
+```
+
+Confidence interval on odds ratio:
+
+```{r}
+exp(confint(m))["grpB",]
+```
+
+The p-value:
+
+```{r}
+coef(summary(m))["grpB","Pr(>|z|)"]
+```
+
+It appears the supposition of no difference in the odds cannot be rejected based on such a large p-value. We generated the data and know there is a real difference, but our analysis of the sample missed it. This is a Type II error: failed to reject null when there was indeed an effect. In real life we don't know if we make these errors. 

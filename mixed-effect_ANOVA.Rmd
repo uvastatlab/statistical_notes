@@ -1,0 +1,98 @@
+---
+title: "Mixed-Effect Modeling for ANOVA"
+author: "Clay Ford"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Simulate Data
+
+Let's simulate data. Below we simulate 30 id numbers (representing subjects), and then we repeat the subject ids 80 times each. Then we randomly assign subjects to a trust category.
+
+```{r}
+set.seed(1)
+N <- 30 # 30 subjects
+id <- gl(n = N, k = 80)
+trust <- factor(sample(1:5, size = 30, replace = TRUE))
+trust <- trust[id]
+```
+
+Check assignment. Eight subjects have trust = 1, eight subjects have trust = 2, etc.
+
+```{r}
+table(trust)/80
+```
+
+Now generate dependent variable, `y`. Notice there are two sources of variation:
+
+1. subject noise/variance (between subjects)
+2. observation noise/variance (within subjects)
+
+There is nothing special about the numbers I'm using. I just made them up.
+
+```{r}
+set.seed(2)
+subj_noise <- rnorm(30, mean = 0, sd = 0.3)
+obs_noise <- rnorm(30*80, mean = 0, sd = 0.2)
+y <- (0.5 + subj_noise[id]) + 
+  0.4*(trust == "2") +
+  0.8*(trust == "3") +
+  1.2*(trust == "4") + 
+  1.6*(trust == "5") + 
+  obs_noise
+```
+
+Put data into data frame:
+
+```{r}
+d <- data.frame(id, y, trust)
+head(d)
+```
+
+## Analysis
+
+Now let's run a mixed-effect ANOVA model. Notice we are fitting the _correct_ model. This is the exact model we used to simulate the data. The syntax `y ~ trust + (1|id)` says "model y as a function of trust and let the intercept be conditional on subject id." In other words, we fit a model to each subject where the effect of trust is the same, but each subject gets their own intercept. This allows the random variation due to each subject to get accounted for in the model. 
+
+```{r message=FALSE}
+library(lme4)
+library(car) # for Anova()
+m <- lmer(y ~ trust + (1|id), data = d)
+Anova(m)
+```
+
+The ANOVA test tells us we have evidence that trust explains some of the variability in the outcome, y. 
+
+A quick diagnostic plot to check the constant variance assumption. You can see each subject as a vertical line of points. We hope to see a constant spread around 0. This looks good.
+
+```{r}
+# residual versus fitted value plot
+plot(m)
+```
+
+We can also create a QQ plot if we like, though it's less important than the previous plot. This looks perfect because we simulated the data. Notice we have to use the `qqmath()` function from the {lattice} package to create this plot.
+
+```{r}
+lattice::qqmath(m)
+```
+
+## Post-hoc comparisons
+
+The ANOVA test was significant. Where are the differences in means? The {emmeans} package can help us investigate.
+
+```{r message=FALSE}
+library(emmeans)
+em_out <- emmeans(m, pairwise ~ trust)
+em_out$contrasts
+```
+
+We can see several "significant" differences. Plotting makes it a little easier to see which are different. Any interval overlapping 0 is uncertain. 
+
+```{r}
+plot(em_out$contrasts) +
+  ggplot2::geom_vline(xintercept = 0)
+```
+
