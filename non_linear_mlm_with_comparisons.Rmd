@@ -1,0 +1,64 @@
+---
+title: "post-hoc comparison with non-linear models"
+author: "Clay Ford"
+date: "2024-07-15"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Get some data
+
+Heights of Boys in Oxford. Data comes from the {nlme} package. This data frame contains the following columns:
+
+- Subject: an ordered factor giving a unique identifier for each boy in the experiment
+- age: a numeric vector giving the standardized age (dimensionless)
+- height: a numeric vector giving the height of the boy (cm)
+
+
+```{r}
+data(Oxboys, package = "nlme")
+```
+
+
+## quick plot
+
+Height obviously appears to be associated with age.
+
+```{r}
+library(ggplot2)
+ggplot(Oxboys) +
+  aes(age, height) +
+  geom_line(aes(group = Subject)) + 
+  geom_smooth(se = FALSE)
+```
+
+## fit a non-linear model
+
+Model height as a function of age. A non-linear model is probably not necessary here, but we'll do it anyway.
+
+```{r message=FALSE}
+library(lme4)
+m <- lmer(height ~ poly(age, 2) + (1 | Subject), data = Oxboys)
+summary(m, corr = F)
+```
+
+## create a simple effect plot
+
+```{r message=FALSE}
+library(ggeffects)
+plot(ggpredict(m, terms = "age [all]"))
+```
+
+## and now do post-hoc comparison 
+
+Compare height at standardized age of 0.5 to -0.5. Notice we need to specify the age values to compare.
+
+```{r message=FALSE}
+library(emmeans)
+emm <- emmeans(m, specs = "age", at = list(age = c(0.5, -0.5)))
+contrast(emm, method = "pairwise")
+```
+

@@ -1,0 +1,107 @@
+---
+title: "Ordered logit with simulated data"
+author: "Clay Ford"
+date: '2022-02-25'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+```
+
+## Simulate data
+
+Following advice from <https://stats.stackexchange.com/questions/321770/simulating-data-for-an-ordered-logit-model>.
+
+Below we simulate data for 200 people (`n`) with 20 observations each. `b1` is the effect of grp = "H". It has the effect of increasing the probability of choosing "in group" when presented with a Human task. I have also added a random effect for each subject, which is some noise drawn from a Normal distribution with mean 0 and standard deviation 0.1.
+
+```{r}
+n <- 200
+id <- 1:n
+rep <- 1:20
+d <- expand.grid(rep = rep, id = id)
+d <- d[order(d$id),]
+d$rep <- NULL
+d$grp <- rep(rep(c("AI", "H"), each = 10), n)
+
+# coefficients
+b01 <- 0.1   # intercept 1
+b02 <- -0.5  # intercept 2
+b1 <- 1.2    # "H" effect
+
+# random effects for subjects
+set.seed(99)
+z <- rnorm(n = n, 0, sd=0.1)
+re <- rep(z, each = 20)
+
+# generate log odds using coefficients
+logodds1 <- b01 + b1 * (d$grp=="H") + re
+logodds2 <- b02 + b1 * (d$grp=="H") + re
+
+# convert to probabilities; plogis() is inverse logit (ie, converts logodds to
+# probabilities)
+prob_2to3 <- plogis(logodds1)
+prob_3 <- plogis(logodds2)
+prob_1 <- 1 - prob_2to3
+prob_2 <- prob_2to3 - prob_3
+
+# now simulate 3-level response using probabilities
+f <- function(p1, p2, p3)sample(x = c(1:3), size = 1, prob = c(p1, p2, p3))
+set.seed(12)
+d$y <- mapply(f, p1 = prob_1, p2 = prob_2, p3 = prob_3)
+# create ordered factor
+d$y <- ordered(d$y, labels = c("out_group", "neither", "in_group"))
+```
+
+Investigate data.
+
+```{r}
+summary(d$y)
+```
+
+```{r}
+xtabs(~ grp + y, data = d) |>
+  proportions(margin = 1) |>
+  round(2)
+```
+
+Subjects classify "H" tasks as "in_group" 67% of the time versus only 39% of the time for "AI" tasks.
+
+## Fit model
+
+Now we fit a model try to recover the "true" value of `b1` = 1.2.
+
+I show two approaches. The first is a mixed-effect proportional odds model using the `clmm()` function from the **ordinal** package. It's actually the appropriate choice here because it assumes the data was generated precisely as I generated it.
+
+Notice it comes very close to the "true" value of 1.2 with an estimate of 1.21571. I also specified 0.1 as the standard deviation for the subject random effect. The model estimates 0.2463. Not too bad. Finally the threshold estimates are quite close the true intercepts of 0.1 and -0.5 in absolute value. (There's a reason the signs are flipped which is not worth going into at the moment.)
+
+```{r}
+library(ordinal)
+m <- clmm(y ~ grp + (1|id), data = d)
+summary(m)
+```
+
+We can visualize the model with **ggeffects** package. It basically shows the proportions we calculated earlier with SE bars provided by the model.
+
+```{r}
+library(ggeffects)
+# visualize model
+ggpredict(m, terms = c("grp")) |> plot()
+
+```
+
+We can interpret the `grp` coefficient by exponentiating. The result is an odds ratio. The estimated odds that "H" tasks are classified into the higher direction (ie, toward the "in group") are about 3 times higher than the estimated odds that "AI" tasks would be classified in the higher direction. That's a mouthful. I prefer the above effect plot that communicates the result using probabilities.
+
+```{r}
+exp(1.21571)
+```
+
+
+We can also use GEE as follows. The results are very similar to the previous model, but I'm not sure how to easily visualize.
+
+```{r}
+library(geepack)
+m2 <- ordgee(y ~ grp, id = id, data = d)
+summary(m2)
+```
+

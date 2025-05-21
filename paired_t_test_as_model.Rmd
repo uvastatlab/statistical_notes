@@ -1,0 +1,65 @@
+---
+title: "Paired T Test as a Model"
+author: "Clay Ford"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Generate some data
+
+Generate something resembling data collected at five stations:
+
+```{r}
+set.seed(1234)
+time <- seq.Date(from = as.Date('2024-01-01'), to = as.Date('2024-03-01'), 
+                 by = "days")
+station <- rep(LETTERS[1:5], each = length(time))
+d <- data.frame(time = rep(time, 5), station = station)
+# random time effect
+z <- rnorm(length(time), sd = 0.4)
+# generate some outcome measure
+d$y <- (10 + z[rep(1:length(time), 5)]) +
+  (station == "B")*0.5 + 
+  (station == "C")*2.3 + 
+  (station == "D")*-0.7 + 
+  (station == "E")*0.4 + 
+  rnorm(nrow(d), sd = 0.3)
+```
+
+Quick visual of data:
+
+```{r}
+library(ggplot2)
+ggplot(d) +
+  aes(x = time, y = y, color = station) +
+  geom_line()
+```
+
+## Fit model
+
+Instead of individual paired t-tests we can fit one model.
+
+```{r message=FALSE}
+library(lme4)
+m <- lmer(y ~ station + (1|time), data = d)
+summary(m, corr = F)
+```
+
+Now run all the paired t-tests at once. Notice p-value corrections are automatically made for the multiple tests.
+
+```{r message=FALSE}
+library(emmeans)
+emmeans(m, specs = pairwise ~ station)$contrasts
+```
+
+And here are the confidence intervals on the average differences.
+
+```{r}
+emmeans(m, specs = pairwise ~ station)$contrast |> 
+  confint()
+```
+

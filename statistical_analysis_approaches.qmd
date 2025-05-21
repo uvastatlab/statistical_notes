@@ -1,0 +1,266 @@
+---
+title: "Statistical Analysis Approaches"
+author: "Clay Ford"
+format: 
+    html:
+      embed-resources: true
+editor: visual
+---
+
+## Request
+
+KL: I've recently run into some issues regarding statistical analyses of some data. I have been troubleshooting by Googling and asking a colleague, but we would like to bounce ideas off someone who has more knowledge than us. I was wondering if it was possible to set up an appointment? Following are some details of the data I'm working with:
+
+-   Data from two different measurements were collected for two different genotypes
+
+    -   organized by measurement, comparing one genotype against anothee
+
+-   For both measurements, data is non-normal and has unequal variance
+
+-   For data collected it may be possible that we need to further subset the measurement data as a possible difference between genotypes may be from a subset of data points
+
+-   Have been using GraphPad Prism v9.5.0
+
+-   Unsure of:
+
+    -   whether to log transform the data and how that affects the biological & statistical interpretation
+    -   whether/how to parse out outliers versus a potential subset of data points
+    -   how to address the unequal variance
+
+## Import and visualize data
+
+```{r}
+d_count <- read.csv("63x 24hpf # Phago (by cell).csv")
+d_avg <- read.csv("63x 24hpf Avg Phago Vol (by cell).csv")
+
+# reshape data
+library(tidyr)
+d_count <- pivot_longer(d_count, cols = 1:2, 
+                        names_to = "genotype", values_to = "count")
+d_count$genotype <- factor(d_count$genotype)
+d_count <- na.omit(d_count)
+d_avg <- pivot_longer(d_avg, cols = 1:2, 
+                      names_to = "genotype", values_to = "avg")
+d_avg$genotype <- factor(d_avg$genotype)
+d_avg <- na.omit(d_avg)
+```
+
+```{r}
+library(ggplot2)
+ggplot(d_count) +
+  aes(x = genotype, y = count, fill = genotype) +
+  geom_jitter(width = 0.05) +
+  geom_violin(alpha = 1/4) 
+
+ggplot(d_avg) +
+  aes(x = genotype, y = avg, fill = genotype) +
+  geom_jitter(width = 0.05) +
+  geom_violin(alpha = 1/4) 
+
+```
+
+Boxplots identify outliers as those observations that are more than 1.5 times the IQR (Interquartile Range) away from the median. The IQR is the range (max - min) of the middle 50% of the data. Multiply that value by 1.5. Values beyond that are labeled a statistical "outlier" *relative to the rest of the data*. They may not actually be an outlier in any scientific sense.
+
+```{r}
+ggplot(d_count) +
+  aes(x = genotype, y = count) +
+  geom_boxplot()
+ggplot(d_avg) +
+  aes(x = genotype, y = avg) +
+  geom_boxplot()
+
+```
+
+We can use the `boxplot()` function to extract the outlying values and which "group" they belong to. Group 1 is blb, group 2 is WT.het.
+
+```{r}
+box1 <- boxplot(count ~ genotype, data = d_count, plot = FALSE)
+cbind(box1$group, box1$out)
+```
+
+```{r}
+box2 <- boxplot(avg ~ genotype, data = d_avg, plot = FALSE)
+cbind(box2$group, box2$out)
+```
+
+## Some analysis approaches
+
+### Traditional T-test
+
+Null: means of two groups are the same. Small p-values provide against this hypothesis. The confidence interval on the difference of means is more informative.
+
+```{r}
+t_out_count <- t.test(count ~ genotype, data = d_count)
+t_out_count
+```
+
+```{r}
+t_out_avg <- t.test(avg ~ genotype, data = d_avg)
+t_out_avg
+```
+
+### Log-transformed T-test
+
+```{r}
+t_out_Lcount <- t.test(log(count) ~ genotype, data = d_count)
+t_out_Lcount
+```
+
+```{r}
+t_out_Lavg <- t.test(log(avg) ~ genotype, data = d_avg)
+t_out_Lavg
+```
+
+The average of log-transformed values is called the *geometric mean*. We exponentiate to return to the original scale of the data.
+
+```{r}
+exp(t_out_Lavg$estimate)
+```
+
+The exponentiated confidence interval on the difference in log-transformed means is for the ratio of the geometric means. The blb genotype geometric mean is estimated to be anywhere from 12% to 2.5 times bigger than the mean for the WT genotype.
+
+```{r}
+exp(t_out_Lavg$conf.int)
+```
+
+### Wilcoxon test
+
+Null: the distributions of the two groups are the same. A small p-value provides evidence against this hypothesis. The confidence interval estimates the median of the difference between a sample from one genotype and a sample from the other genotype.
+
+```{r}
+w_out_count <- wilcox.test(count ~ genotype, data = d_count, conf.int = TRUE)
+w_out_count
+```
+
+```{r}
+w_out_avg <- wilcox.test(avg ~ genotype, data = d_avg, conf.int = TRUE)
+w_out_avg
+
+```
+
+The results agree with the previous two approaches.
+
+### Permutation test
+
+In a permutation test we hold the group labels fixed, shuffle the values around, and then calculate the difference in means between the two groups. If there is no difference in group means then it shouldn't matter how we label the values. We do this many times and then see how often shuffling the values resulted in a larger test statistic (ie, difference in means) than what we observed. If there is no difference in group means, then we should see this happen a lot. If there is a difference in group means, then reshuffling the labels will make a difference and result in few instance of exceeding the observed difference in means.
+
+```{r}
+wt <- d_avg$genotype == "WT.het"  # the wt labels
+blb <- !wt  # The blb labels
+avg <- d_avg$avg  # the observed values
+# observed difference in means
+test_stat <- mean(avg[wt]) - mean(avg[blb])
+test_stat
+```
+
+Now do a for loop 9999 times randomly reshuffling the values and calculate the difference in means each time.
+
+```{r}
+meandiffs <- double(9999)
+for(i in 1:length(meandiffs)){
+  savg <- sample(avg)
+  meandiffs[i] <- mean(savg[wt] - mean(savg[blb]))
+}
+```
+
+Calculate proportion of test statistics larger than or smaller than `r test_stat`.
+
+```{r}
+greater <- abs(meandiffs) > abs(test_stat)
+mean(greater)
+```
+
+The proportion of test statistics is anologous to a p-value and is the area in the histogram to the left and the right of the straight lines, which are the positive and negative values of the observed difference in means.
+
+```{r}
+hist(meandiffs)
+abline(v = test_stat)
+abline(v = -test_stat)
+```
+
+This is fairly close, but a bit larger, than the p-value calculated by the first t-test.
+
+The coin package in R will do this for us if you don't feel like coding a for loop.
+
+```{r message=FALSE}
+library(coin)
+independence_test(avg ~ genotype, data= d_avg)
+```
+
+The result for the count data agrees with all previous analyses.
+
+```{r}
+independence_test(count ~ genotype, data= d_count)
+```
+
+### Bootstrap analysis : difference in means
+
+In a bootstrap analysis we resample the data (with replacement) over and over and calculate a statistic of interest such as a difference in means or medians. Below we resample the row numbers and then use those row numbers to select observations from the data frame using indexing brackets in the call to `aggregate()`. We then take the difference means. We use the `replicate()` function to replicate this chunk of code 999 times. When finished we find the 2.5 and 97.5 percentiles to form a 95% confidence interval on the difference in means.
+
+```{r}
+boot_out <- replicate(n = 999, expr = {
+  i <- sample(nrow(d_avg), replace = TRUE)
+  d <- aggregate(avg ~ genotype, data = d_avg[i,], FUN = mean)
+  d$avg[1] - d$avg[2] 
+  })
+quantile(boot_out, probs = c(0.025, 0.975))
+```
+
+The boot package makes this a little easier and provides more options for the confidence interval. The "bca" type is the adjusted bootstrap percentile (BCa) interval.
+
+```{r message=FALSE}
+library(boot)
+diffmeans <- function(d, i){
+  d <- aggregate(avg ~ genotype, data = d[i,], FUN = mean)
+  d$avg[1] - d$avg[2]
+}
+b_out <- boot(data = d_avg, statistic = diffmeans, R = 999)
+boot.ci(b_out, type = c("perc", "bca"))
+```
+
+Again the differences between the means in the count data is so small we can't tell which one is bigger.
+
+```{r}
+diffmeans <- function(d, i){
+  d <- aggregate(count ~ genotype, data = d[i,], FUN = mean)
+  d$count[1] - d$count[2]
+}
+b_out2 <- boot(data = d_count, statistic = diffmeans, R = 999)
+boot.ci(b_out2, type = c("perc", "bca"))
+
+```
+
+### Bootstrap analysis : difference in medians
+
+We might also want to look at a difference in medians. We simply change `mean` to `median` and re-run the code.
+
+```{r}
+diffmedian <- function(d, i){
+  d <- aggregate(avg ~ genotype, data = d[i,], FUN = median)
+  d$avg[1] - d$avg[2]
+}
+b_out <- boot(data = d_avg, statistic = diffmedian, R = 999)
+boot.ci(b_out, type = c("perc", "bca"))
+```
+
+```{r}
+diffmedian <- function(d, i){
+  d <- aggregate(count ~ genotype, data = d[i,], FUN = median)
+  d$count[1] - d$count[2]
+}
+b_out2 <- boot(data = d_count, statistic = diffmedian, R = 999)
+boot.ci(b_out2, type = c("perc", "bca"))
+
+```
+
+Notice the warning issued when this is tried with the count data. I think this is probably due to the fact that the counts are highly distinct and skewed and that there just isn't much difference in the medians, as seen when we compare summaries of counts between the two genotypes.
+
+```{r}
+tapply(d_count$count, d_count$genotype, summary)
+```
+
+## Conclusion
+
+All of these results agree in substance. All show a difference in means/medians between the averages and show no differences in means/medians between the counts. In my opinion it hardly makes a difference which one you pick, though I suppose because of the skewed nature of your data reviewers will probably want to see something besides a basic t-test on the raw data.
+
+However, as we discussed in the meeting, I think your analysis could be improved by using all the data in mixed-effect model. Some of the "significant" results of the average data could be due to a few large raw values skewing the average value for a cell.

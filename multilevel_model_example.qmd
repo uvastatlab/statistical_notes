@@ -1,0 +1,150 @@
+---
+author: "Clay Ford"
+date: "2023-09-15"
+title: "Multilevel Model Example"
+format:
+  html:
+    embed-resources: true
+---
+
+
+```{r echo=FALSE}
+rat <- 1:10
+region <- 1:3
+neuron <- 1:10
+seizure <- c("before","during")
+d <- expand.grid(seizure = seizure, neuron = neuron, region = region, rat = rat)
+set.seed(1)
+e_rat <- rnorm(n = 10, mean = 0, sd = 0.8)
+e_region <- rnorm(n = 10*3, mean = 0, sd = 1.3)
+e_neuron <- rnorm(n = 10*3*10, mean = 0, sd = 0.7)
+e <- rnorm(nrow(d), mean = 0, sd = 1.2)
+d$region_rat <- as.numeric(interaction(d$region, d$rat))
+d$region_rat_neuron <- as.numeric(interaction(d$region, d$rat, d$neuron))
+
+d$rate <- (10 + e_rat[d$rat] + 
+             e_region[d$region_rat] + 
+             e_neuron[d$region_rat_neuron]) + 
+  5*(d$seizure == "during") + e
+d$region_rat <- NULL
+d$region_rat_neuron <- NULL
+d$rat <- factor(d$rat)
+d$region <- factor(d$region)
+d$neuron <- factor(d$neuron)
+```
+
+## simulated rat data
+
+Take a look at simulated data
+
+```{r}
+rbind(head(d), tail(d))
+```
+
+## visualize data
+
+```{r}
+library(ggplot2)
+ggplot(d) +
+  aes(x = seizure, y = rate) +
+  geom_jitter(width = 0.1, height = 0) +
+  facet_wrap(~ rat, labeller = "label_both")
+```
+
+## Model data
+
+Model rate as a function of seizure level (before/during) controlling for rat, regions within rat, and neurons within regions within rats.
+
+```{r message=FALSE}
+library(lme4)
+m <- lmer(rate ~ seizure + (1 | rat/region/neuron), data = d)
+summary(m, corr = FALSE)
+```
+
+Expected rate goes up by about 5 during seizure. Notice there are four sources of variation:
+
+1. between neurons, which are within regions, which are within rats
+2. between regions, which are within rats
+3. betweem rats
+4. within rats (Residual)
+
+Calculate 95% confidence interval on the seizure coefficient.
+
+```{r}
+confint(m, parm = "seizureduring")
+```
+
+Rate increases about 4.8 to 5.3 during seizure.
+
+## visualize model
+
+```{r}
+library(ggeffects)
+plot(ggpredict(m, terms = "seizure"), connect.lines = TRUE)
+```
+
+## basic model diagnostics
+
+Check for constant variance of residuals. Looks good
+
+```{r}
+plot(m)
+```
+
+Check for constant variance of residuals within rat. Looks good.
+
+```{r}
+plot(m, rat ~ resid(., scaled=TRUE))
+```
+
+Check normality of residuals. Looks good.
+
+```{r}
+lattice::qqmath(m)
+```
+
+
+
+## how data was simulated
+
+This may be of interest. Notice how closely the model coefficients (under fixed effects) and standard deviations (under random effects) come close to the "true" values used to simulate the data below. For example, below the "true" between rat standard deviation is set to 0.8. Above the model estimated that standard deviation between rats to be 0.8204. Likewise, the "true" increase in rate during seizure is set to 5 below. The model output above estimates it to be 5.0490. Of course the model performs well because I fit the "correct" model (since I knew how I generated the data).
+
+
+```{r eval=FALSE}
+# generate levels that define unique observations
+rat <- 1:10
+region <- 1:3
+neuron <- 1:10
+seizure <- c("before","during")
+
+# combine levels into a data frame
+d <- expand.grid(seizure = seizure, neuron = neuron, 
+                 region = region, rat = rat)
+
+# generate random effects;
+set.seed(1)
+e_rat <- rnorm(n = 10, mean = 0, sd = 0.8) # rat
+e_region <- rnorm(n = 10*3, mean = 0, sd = 1.3) # region:rat
+e_neuron <- rnorm(n = 10*3*10, mean = 0, sd = 0.7) # neuron:(region:rat) 
+e <- rnorm(nrow(d), mean = 0, sd = 1.2) # Residual
+
+# generate nesting identifiers
+d$region_rat <- as.numeric(interaction(d$region, d$rat))
+d$region_rat_neuron <- as.numeric(interaction(d$region, d$rat, d$neuron))
+
+# generate rate:
+# 10 is true "before" seizure rate (ie, intercept)
+# 5 is true change in rate "during" seizure
+d$rate <- (10 + e_rat[d$rat] + 
+             e_region[d$region_rat] + 
+             e_neuron[d$region_rat_neuron]) + 
+  5*(d$seizure == "during") + e
+
+# tidy up and declare rat, region, and neuron as factors
+d$region_rat <- NULL
+d$region_rat_neuron <- NULL
+d$rat <- factor(d$rat)
+d$region <- factor(d$region)
+d$neuron <- factor(d$neuron)
+```
+

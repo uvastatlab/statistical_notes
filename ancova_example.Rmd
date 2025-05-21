@@ -1,0 +1,130 @@
+---
+title: "ANCOVA"
+author: "Clay Ford"
+date: "1/7/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+ANCOVA stands for Analysis of Covariance. It's simply linear regression with one numeric predictor and one categorical predictor. It can help us assess how the linear association between the numeric variable and our dependent variable changes between the groups.
+
+## Load data
+
+Read and prepare Prism data. I believe this data corresponds to Fig 2D.
+
+```{r message=FALSE}
+library(pzfx)
+library(tidyverse)
+H2SO4_d1 <- read_pzfx("21.09.21 Six Month H2SO4 Study.pzfx")
+
+# reshape data to "long format"
+d <- H2SO4_d1 %>% 
+  pivot_longer(cols = -ROWTITLE, names_to = "g", values_to = "hue") %>% 
+  rename(month = ROWTITLE) %>% 
+  mutate(g = factor(str_remove(g, "_[0-9]$")),
+         month = as.numeric(str_remove(month, "Month ")))
+head(d)
+```
+
+## Visualize data
+
+Raw data.
+
+```{r}
+ggplot(d) +
+  aes(x = month, y = hue, color = g) +
+  geom_point(position = position_dodge(width = 0.4)) +
+  scale_x_continuous(breaks = 1:6)
+```
+
+Raw data with smooth trend lines.
+
+```{r message=FALSE}
+ggplot(d) +
+  aes(x = month, y = hue, color = g) +
+  geom_point(position = position_dodge(width = 0.4)) +
+  geom_smooth() +
+  scale_x_continuous(breaks = 1:6)
+```
+
+Means over time +/- 1 SD.
+
+```{r}
+ggplot(d) +
+  aes(x = month, y = hue, color = g, group = g) +
+  stat_summary(fun.data = "mean_sdl", 
+               position = position_dodge(width = 0.4)) +
+  scale_x_continuous(breaks = 1:6)
+
+```
+
+Often want to show +/- 1 _standard error_ (SE) (ie, $\frac{SD}{\sqrt n}$).
+
+```{r}
+ggplot(d) +
+  aes(x = month, y = hue, color = g, group = g) +
+  stat_summary(fun.data = "mean_se", 
+               position = position_dodge(width = 0.4)) +
+  scale_x_continuous(breaks = 1:6)
+```
+
+
+
+## Run ANCOVA
+
+We use the `lm()` function to fit a "linear model". Since month is numeric and g is categorical, this is an ANCOVA. The formula `hue ~ g * month` means model hue as a function of g, month, and their interaction.
+
+```{r}
+m <- lm(hue ~ g * month, data = d)
+anova(m)
+```
+
+The interaction appears to be significant. This says the effect of month depends on the group and vice versa. How so? Let's follow up with some plots and comparisons.
+
+## Plot model
+
+The ggeffects package allows us to quickly visualize our ANCOVA model.
+
+```{r}
+library(ggeffects)
+plot(ggpredict(m, terms = c("month", "g")))
+```
+
+This shows the fitted trajectory of the effect of month on hue for the different groups. We can see the significant interaction appears to be due to the different slopes for `(+) BPB H20` (green) and `(-) BPB H20` (red). 
+
+Are these fitted slopes a "good" fit for the data? We can add data to the plot to assess.
+
+```{r}
+plot(ggpredict(m, terms = c("month", "g")), add.data = TRUE)
+```
+
+The slope doesn't seem to fit month 3 very well. There's also _much more_ variability around the fitted line for `(-) BPB H20` (red). One of the assumptions of ANCOVA is that the variance around the fitted line is the same for each group.
+
+## Are slopes different from 0?
+
+The `emtrends` function in the emmeans package can help us quickly assess this. 
+
+In the **first section** ("emtrends") we get the slope for each group in the "month.trend" column as well as 95% confidence intervals for each slope. We see that `(-) BPB H2O` and `(+) BPB H2O` are the two groups with confidence intervals that _do not_ contain 0. Therefore we're confident these slopes are _different from 0_. (Are these estimated slopes practically significant?) The slopes for the acid groups are small and indistinguishable from 0.
+
+In the **second section** ("contrasts") we get Tukey pairwise comparisons between the slopes. The slope for `(-) BPB H2O)` appears to be different from all other groups.
+
+```{r}
+library(emmeans)
+emtrends(m, pairwise ~ g, var = "month")
+```
+
+We can plot each of these results if we like.
+
+```{r}
+em <- emtrends(m, pairwise ~ g, var = "month")
+plot(em$emtrends)
+```
+
+
+```{r}
+plot(em$contrasts)
+```
+

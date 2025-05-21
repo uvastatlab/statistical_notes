@@ -1,0 +1,197 @@
+---
+title: "An Introduction to Mixed-Effect Modeling"
+author: "Clay Ford"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Generate data
+
+Let's generate data that would require a mixed-effect model. Don't worry too much about the R code here. What's important to note is the _structure_ of the data. We have multiple observations _per mouse_ for each region. You'll also notice that when we generate "angle", we set mutant mice to have have angles about 20 units higher on average.
+
+```{r}
+# ensure all random data is reproducible
+set.seed(7)
+# number of mice
+n <- 10
+# id number of mouse
+id <- 1:n 
+# region
+region <- paste0("R", 1:12)
+# generate all combinations of id and region
+d <- expand.grid(id = id, region = region)
+d$id <- factor(d$id)
+d$region <- factor(d$region)
+# number of samples per id per region
+n_i <- sample(1:12, size = n * 12, replace = TRUE)
+# expand data frame according to n_i
+library(tidyr)
+d <- uncount(d, n_i)
+# add trt variable. Mice 1-5 are control, mice 6 - 10 are mutant
+d$trt <- ifelse(d$id %in% 1:5, "control", "mutant")
+# generate angle
+e <- rnorm(nrow(d), mean = 0, sd = 5) # within mouse random variation
+z <- rnorm(n, mean = 0, sd = 10) # between mouse random variation
+d$angle <- (30 + z[d$id]) + (d$trt == "mutant")*20 + 
+  (d$region == "R2")*45 +
+  (d$region == "R3")*60 +
+  (d$region == "R4")*1 +
+  (d$region == "R5")*45 +
+  (d$region == "R6")*90 +
+  (d$region == "R7")*120 +
+  (d$region == "R8")*45 +
+  (d$region == "R9")*120 +
+  (d$region == "R10")*45 +
+  (d$region == "R11")*90 +
+  (d$region == "R12")*60 +
+  e
+# order data by id and reset row numbers
+d <- d[order(d$id),]
+rownames(d) <- NULL
+# first 12 rows of data
+head(d, n = 12)
+```
+
+## Visualize the data
+
+Compare control and mutant angle by region.
+
+```{r}
+library(ggplot2)
+ggplot(d) +
+  aes(x = trt, y = angle, color = trt) +
+  geom_jitter(height = 0, width = 0.1) +
+  facet_wrap(~region)
+```
+
+Compare regions by treatment. Notice the variability within mice as well as between mice. There are too many mice to be using colors here, but I think it helps show the variability within each mouse. 
+
+```{r}
+ggplot(d) +
+  aes(x = region, y = angle, color = id) +
+  geom_jitter(height = 0, width = 0.1) +
+  facet_wrap(~trt)
+```
+
+## Summary stats
+
+Calculate mean angles by region and trt. Notice mutant is always higher, which is how we simulated the data. In fact, eyeballing the values shows the means between the two treatment groups to differ by about 20.
+
+```{r}
+tapply(d$angle, list(d$region, d$trt), mean)
+```
+
+Calculate standard deviation by region and trt. This is fairly constant, just as we simulated the data.
+
+```{r}
+tapply(d$angle, list(d$region, d$trt), sd)
+```
+
+Count of observations by mouse and region.
+
+```{r}
+xtabs(~ region + id, data = d)
+```
+
+
+## Analysis approaches
+
+### 2-way ANOVA: The WRONG approach
+
+Treat observations as independent. Notice the Residuals degrees of freedom is way too high.
+
+```{r message=FALSE}
+library(car)
+m0 <- lm(angle ~ trt + region, data = d)
+Anova(m0)
+```
+
+Notice how precise the estimate of trt is with a standard error of 0.8039. That's too good to be true.
+
+```{r}
+summary(m0)
+```
+
+
+### 2-way ANOVA: The old-school approach
+
+Aggregate angle by mouse and region and then run a 2-way ANOVA. Again, don't worry too much about the R code. Just notice the final data has 120 rows, one observation per mouse per region.
+
+```{r message=FALSE}
+d$angle_mean <- ave(d$angle, d$id, d$region, FUN = mean)
+d2 <- d[,c("id", "region", "trt", "angle_mean")]
+d2 <- d2[!duplicated(d2),]
+head(d2)
+nrow(d2)
+```
+
+Now do the 2-way ANOVA with the aggregated data. The degrees of freedom looks good.
+
+```{r}
+m1 <- lm(angle_mean ~ trt + region, data = d2)
+Anova(m1)
+```
+
+The estimate for trt is good and has a more realistic standard error, but the standard errors for all region coefficients are the same. That's not realistic.
+
+```{r}
+summary(m1)
+```
+
+###  2-way ANOVA: mixed-effect model approach
+
+Use all the data and specify a _random intercept_ for each mouse. That's what the `(1|id)` syntax does. We're essentially fitting a separate model to _each mouse_. Notice the test of trt effect is much more modest now, but still "significant".
+
+```{r message=FALSE}
+library(lmerTest)
+m2 <- lmer(angle ~ trt + region + (1|id), data = d)
+Anova(m2, test.statistic = "F")
+```
+
+Notice the coefficient for trt is about 21 (close to the true value) and has a larger standard error, about 8. Also notice all the region coefficients have different standard errors instead of unrealistically estimating them to be the same. In the section titled "Random effects", we see two estimates of variability:
+
+1. `id `: between mice, estimated to be about 11.7
+2. `Residual`: within mice, estimated to be about 5
+
+Compare these values to what we used to simulate the variation above.
+
+```{r}
+summary(m2, corr = F)
+```
+
+Above I said we fit a separate model to each mouse. We can see those models by calling `coef()` on the model object. Notice that _each mouse gets their own intercept_ but all other coefficients are the same. Hence the reason we call this a _random-intercept model_. This is the correct model, because that is precisely how I simulated the data above! You'll notice the between mouse variance was added to the intercept to create the "random" intercepts. 
+
+```{r}
+coef(m2)
+```
+
+Now we can create post-hoc plots. The difference between control and mutant is the same in each region (about 21) because that's how we specified our model.
+
+```{r}
+library(ggeffects)
+plot(ggpredict(m2, terms = c("region", "trt")))
+```
+
+If we thought the effect of trt _varied by region_ then we could fit an _interaction_. We do so below by adding `trt:region` to the model. We didn't simulate this data with interactions, so the interaction is not important.
+
+```{r}
+m3 <- lmer(angle ~ trt + region + trt:region + (1|id), data = d)
+Anova(m3, test.statistic = "F")
+```
+
+The model summary is much more verbose because of the interaction:
+
+```{r}
+summary(m3, corr = F)
+```
+
+The post-hoc plot is barely distinguishable from the first plot.
+
+```{r}
+plot(ggpredict(m3, terms = c("region", "trt")))
+```
+

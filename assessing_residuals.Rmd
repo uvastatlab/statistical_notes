@@ -1,0 +1,68 @@
+---
+title: "Assessing residuals"
+author: "Clay Ford"
+date: "2024-04-05"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Kelcy's Model
+
+Read in data
+
+```{r}
+library(readxl)
+library(reshape2)
+PB19_Eri.angCN_LMM <- read_excel("R data template raw PB19 Eri.ang CN.xlsx", 
+                                 sheet = "remove SARD and made SAadd SA")
+PB19_Eri.angCN_LMM <- melt(PB19_Eri.angCN_LMM, 
+                           id.vars = c("SampleName", "SiteType", "PlotNumber"))
+colnames(PB19_Eri.angCN_LMM)[4]<-"SampleType"
+colnames(PB19_Eri.angCN_LMM)[5]<-"data"
+PB19_Eri.angCN_LMM$SiteType = factor(PB19_Eri.angCN_LMM$SiteType, 
+                                     c("PC", "UD", "DI", "DA", "SI", "SA"))
+PB19_Eri.angCN_LMM$PlotNumber <- factor(PB19_Eri.angCN_LMM$PlotNumber)
+PB19_Eri.angCN_LMM$SampleName <- factor(PB19_Eri.angCN_LMM$SampleName)
+CN <- subset(PB19_Eri.angCN_LMM, SampleType == "CN")
+```
+
+Fit model.
+
+```{r message=FALSE}
+library(lme4)
+PB19Eri.angCN_LMM <- lmer(data ~ SiteType + (1|PlotNumber), data = CN )
+```
+
+Check residuals.
+
+```{r}
+lattice::qqmath(PB19Eri.angCN_LMM)
+```
+
+## Assess normality plot
+
+How does the QQ plot of model residuals compare to QQ plots created with data sample from a Normal distribution with same residual standard error as model?
+
+```{r}
+op <- par(mar = c(2,2,1,1), mfrow = c(5,5))
+
+# create first qq plot using model residuals
+# color it red
+qqnorm(residuals(PB19Eri.angCN_LMM), xlab = "", ylab = "", main = "", 
+       col = "red")
+qqline(residuals(PB19Eri.angCN_LMM))
+
+# now create 24 qq plots using Normal data with sigma(PB19Eri.angCN_LMM
+for(i in 1:24){
+  # rnorm() samples from a Normal dist'n 
+  d <- rnorm(length(residuals(PB19Eri.angCN_LMM)), 
+             mean = 0, sd = sigma(PB19Eri.angCN_LMM))
+  qqnorm(d, xlab = "", ylab = "", main = "")
+  qqline(d)
+}
+```
+
+The model QQ plot looks like all the others.

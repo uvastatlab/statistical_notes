@@ -1,0 +1,171 @@
+---
+title: "Mediation Analysis with Multiple Imputation"
+author: "Clay Ford"
+date: '2022-04-25'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Load packages
+
+```{r message=FALSE}
+library(haven)
+library(mice)
+library(mediation)
+library(car)
+library(ggplot2)
+
+```
+
+## Load data
+
+
+```{r}
+d <- read_sav("KS_data.sav")
+
+# set as categorical variable
+d$PreKTeacherID <- factor(d$PreKTeacherID)
+
+# drop columns we're not using
+vars <- c("PreKTeacherID", "WJMath3", "TMathAnx", "MathExFW","WJMath1")
+d <- d[,vars]
+summary(d)
+```
+
+# Visualize data
+
+I made a few plots to get acquainted with the data. 
+
+Pairwise scatterplot. Not much variation in `MathExFW` relative to `WJMath3`. Only ranges in value from 0 to 0.35. 
+
+```{r message=FALSE}
+scatterplotMatrix(d[,-1], )
+```
+
+Also `WJMath1` and `WJMath3` are highly correlated.
+
+```{r}
+cor(d$WJMath3, d$WJMath1, use = "pairwise.complete")
+```
+
+Quick look at variation in `WJMath3` among teachers. Seems fairly constant. 
+
+```{r warning=FALSE, message=FALSE}
+ggplot(d) +
+  aes(x = reorder(PreKTeacherID, WJMath3, FUN = median, na.rm = TRUE), 
+      y = WJMath3) +
+  geom_boxplot() +
+  labs(x = "Teacher ID") +
+  coord_flip() 
+  
+```
+
+Closer look at `TMathAnx` and `WJMath3`. 
+
+```{r warning=FALSE, message=FALSE}
+ggplot(d) +
+  aes(x = TMathAnx, y = WJMath3) +
+  geom_point() +
+  geom_smooth()
+```
+
+Closer look at `TMathAnx` and `MathExFW`. Points slightly "jittered" since `TMathAnx` is constant within teacher. 
+
+```{r warning=FALSE, message=FALSE}
+ggplot(d) +
+  aes(x = TMathAnx, y = MathExFW) +
+  geom_jitter(width = 0.1, height = 0.005) +
+  geom_smooth()
+```
+
+
+## Mediation Analysis without imputation
+
+Here use the `mediate` function from the **mediation** package. It requires you first fit models for the mediator and outcome. `dropobs = TRUE` means the models are re-fit using common data rows since each has different combinations of missing data. The argument `sims=250` is the number of bootstrap replicates. That should be higher, like around 1000. I did 250 to save some time. 
+
+```{r }
+model.M <- lm(MathExFW ~ TMathAnx + WJMath1, data = d)
+model.Y <- lm(WJMath3 ~ TMathAnx + MathExFW + WJMath1, data = d)
+results <- mediate(model.M, model.Y, treat='TMathAnx', mediator='MathExFW',
+        boot=TRUE, sims=250, dropobs = TRUE)
+summary(results)
+```
+
+There is also an optional argument for clustered standard errors. For example I could specify `cluster = d$PreKTeacherID` to get standard errors clustered on Teacher. However that option is disabled when running the bootstrap. Here's the mediation analysis on complete data with clustered standard errors and no bootstrap. Of course we get a warning about missing data. And The Average Causal Mediation Effect (ACME) is no longer "significant". 
+
+```{r message=FALSE}
+model.M <- lm(MathExFW ~ TMathAnx + WJMath1, data = d)
+model.Y <- lm(WJMath3 ~ TMathAnx + MathExFW + WJMath1, data = d)
+results <- mediate(model.M, model.Y, treat='TMathAnx', mediator='MathExFW',
+                   dropobs = TRUE, cluster = d$PreKTeacherID)
+summary(results)
+```
+
+
+## Mediation Analysis with Multiple Imputation and bootstrap
+
+First impute data 10 times using predictive mean matching (pmm). Notice the warning about "logged events". That's due to the high collinarity between WJMath1 and WJMath3.
+
+```{r}
+imp <- mice(d, m=10, method = "pmm", print=FALSE, seed = 12345)
+```
+
+Check imputations to make sure imputed data makes sense in light of warning message (ie, nothing imputed outside the range of the data). The red dots are the imputed values. Imputation number 0 is the original data. 
+
+```{r}
+stripplot(imp, WJMath3, pch = 19, xlab = "Imputation number") 
+```
+
+
+```{r}
+stripplot(imp, WJMath1, pch = 19, xlab = "Imputation number")
+
+```
+
+Plots look OK for most of the imputations. 
+
+Now do mediation analysis on all 10 imputed data sets.
+
+```{r }
+fit <- with(data = imp, expr = {
+  model.M <- lm(MathExFW ~ TMathAnx + WJMath1)
+  model.Y <- lm(WJMath3 ~ TMathAnx + MathExFW + WJMath1)
+  mediate(model.M, model.Y, treat='TMathAnx', mediator='MathExFW',
+          boot=TRUE, sims=250)
+  })
+```
+
+
+Finally pool the results. The only results are for the Average Causal Mediation Effects (acme) and the Average Direct Effects (ade). I'm not sure why they're duplicated or have "0" and "1" appended to the end. Plus warnings. (?)
+
+```{r }
+summary(pool(fit))
+```
+
+
+## Mediation Analysis with Multiple Imputation and clustered SE
+
+Here we include clustered Standard Errors for Teacher but suppress the bootstrap.
+
+```{r}
+fit2 <- with(data = imp, expr = {
+  model.M <- lm(MathExFW ~ TMathAnx + WJMath1)
+  model.Y <- lm(WJMath3 ~ TMathAnx + MathExFW + WJMath1)
+  mediate(model.M, model.Y, treat='TMathAnx', mediator='MathExFW',
+          cluster = d$PreKTeacherID)
+  })
+```
+
+And pool the results.
+
+```{r }
+summary(pool(fit2))
+```
+
+
+This is the best I can do at the moment for mediation analysis with covariates on multiply imputed data. 
+
+<br><br><br>

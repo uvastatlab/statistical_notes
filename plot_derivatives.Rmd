@@ -1,0 +1,74 @@
+---
+title: "first and second derivatives"
+author: "Clay Ford"
+date: "5/17/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Import data
+
+Just get data for IS481. Not sure this is what you want. 
+
+```{r message=FALSE}
+library(readxl)
+library(tidyr)
+library(dplyr)
+d <- read_excel(path = '21.04.29 Probe Concentration Comparison.xlsx', sheet = 2,
+                range = 'A1:P44')
+# reshape to long format to help with plotting
+dL <- pivot_longer(d, cols = -1, names_to = "conc", values_to = "signal")
+```
+
+Using the `smooth.spline` and `predict` functions in base R. The `smooth.spline` function fits a cubic smoothing spline to the data. The `predict` function uses the fit to predict a spline at new points and returns the derivative specified.
+
+```{r}
+nms <- unique(dL$conc)
+mL <- lapply(nms, function(x)smooth.spline(x = dL$`Time (min)`[dL$conc == x], 
+                         y = dL$signal[dL$conc == x]))
+# first derivative
+D1 <- lapply(mL, function(x)predict(x, x = seq(0,19, length.out = 200), 
+                                    deriv = 1))
+# second derivative
+D2 <- lapply(mL, function(x)predict(x, x = seq(0,19, length.out = 200), 
+                                    deriv = 2))
+# name elements in D2 and D2
+names(D1) <- names(D2) <- nms
+
+D1 <- bind_rows(D1,.id = "conc")
+D2 <- bind_rows(D2,.id = "conc")
+
+D1$conc <- factor(D1$conc, labels = nms)
+D2$conc <- factor(D2$conc, labels = nms)
+
+```
+
+## Create plots
+
+First derivative
+
+
+```{r}
+library(ggplot2)
+ggplot(D1) +
+  aes(x, y, color = conc) +
+  geom_line() +
+  labs(title = "IS481 Probe Concentration Comparison\n[First Derivative]", 
+       x = "Time (min)", y = "Δ Fluoresence/Δ Time (F.U./min)")
+```
+
+Second derivative
+
+```{r}
+ggplot(D2) +
+  aes(x, y, color = conc) +
+  geom_line() +
+  coord_cartesian(xlim = c(0,6)) +
+  labs(title = "IS481 Probe Concentration Comparison\n[Second Derivative]", 
+       x = "Time (min)", y = "Δ Fluoresence/Δ Time (F.U./min)")
+
+```
+

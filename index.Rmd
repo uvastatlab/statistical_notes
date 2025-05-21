@@ -35,6 +35,13 @@ How to compare two fitted curves using an interaction in a `nlme::gnls()` model.
 - [Understanding the {ggeffects} predict_response() margin argument](ggeffects_margin_argument.html) (Clay Ford, 2025-01-10)    
 Elaborating on the {ggeffects} vignette, [Difference Between Marginalization Methods: The margin Argument](https://strengejacke.github.io/ggeffects/articles/technical_differencepredictemmeans.html).
 
+- [Intro to Mixed-Effect Modeling](intro_mixed_effect_modeling.html) (Clay Ford, 2024-12-18)     
+Introduces mixed-effect modeling using simulated data and compares the results to wrong and older methods. 
+
+
+- [Paired t-tests as mixed-effect model](paired_t_test_as_model.html) (Clay Ford, 2024-11-22)     
+How to run many paired t-tests as a single mixed-effect model. Uses simulated data. 
+
 - [tidyLPA notes](tidyLPA.html) (Clay Ford and Lauren Brideau, 2024-11-01)    
 Notes on using the {tidyLPA} package and how it relates to the {mclust} package.
 
@@ -49,8 +56,16 @@ Demonstration of using the `hetcor()` function in the {polycor} package using si
 - [Polyserial and Polychoric Correlation](polychoric_and_polyserial_correlations.html) (Clay Ford, 2024-09-24)      
 An intro to polyserial and polychoric correlation using the {polycor} package. 
 
+
+- [Post-hoc Comparisons with non-linear models](non_linear_mlm_with_comparisons.html) (Clay Ford, 2024-07-15)      
+Simple demo of using `emmeans()` on a non-linear predictor.
+
 - [Demo of Term plots](term_plots.html) (Clay Ford, 2024-06-25)     
 Demonstration of using term plots to detect departures from linearity for coefficients. Shows the base R `termplot()` and `car::crPlots()` functions.
+
+
+- [Assessing residuals with lineup lots](assessing_residuals.html) (Clay Ford, 2024-04-05)      
+Using lineup plots to better interpret a QQ plot of model residuals. 
 
 - [Compact Letter Displays](cld.html) (Clay Ford, 2024-03-24)    
 How to create and interpret Compact Letter Displays, though [some people don't like them](https://stats.stackexchange.com/questions/275832/interpreting-compact-letter-displays-and-tukey-multiple-comparisons-from-glmm#comment829280_275832).
@@ -67,6 +82,7 @@ Convert a two-way ANOVA into a one-way ANOVA.
 - [Multilevel Quantile Regression](multilevel_quantile_regression.html) (Clay Ford, 2023-10-23)      
 Example of Multilevel Quantile Regression using {lqmm} and simulated data. 
 
+
 - [Data wrangling nc4 files](dw_nc4_files.html) (Clay Ford, 2023-10-18)     
 Example of extracting values from nc4 object (netCDF) and converting to data frame.
 
@@ -77,8 +93,16 @@ Recoding example using a lookup table.
 - [Multi-level model example using simulated data](example_analysis.html) (Clay Ford, 2023-10-03)    
 Example of multi-level model written for someone who was brand new to R. Includes demo of {emmeans} and {ggeffects}.
 
+- [Multilevel model example with 3 nested levels](multilevel_model_example.html) (Clay Ford, 2023-09-15)     
+Example of a multilevel model with 3 levels of nested groups. Uses simulated data.
+
+
 - [Data wrangling consultation](consultation_summary_2023-08-28.html) (Clay Ford, 2023-08-28)     
 Data wrangling tasks: (1) drop any groups with less than 10 rows, (2) drop rows with runs of zeroes greater than or equal to 5.
+
+- [Various t-test alternatives](statistical_analysis_approaches.html) (Clay Ford, 2023-02-21)      
+Shows alternatives to t-tests, including log-transformed t-tests, Wilcoxon, permutation tests, and bootstrap. 
+
 
 - [Split violin plots](split_violin_plots.html) (Clay Ford, 2022-10-18)     
 Demo of how to create split violin plots using `introdataviz::geom_split_violin()`
@@ -102,6 +126,10 @@ Demo of three ways to fit a logistic regression model in R.
 - [Comparing a mediation analysis and with a t-test](mediation_analysis_ttest.html) (Clay Ford, 2022-05-25)       
 The difference in means from a t-test is the “Total Effect” in mediation analysis.
 
+
+- [Mediation Analysis with Multiple Imputation](MA_with_MI.html) (Clay Ford, 2022-04-25)      
+An attempt at mediation analysis with multiply imputed data using the {mice} and {mediation} packages. 
+
 - [Explaining large confidence intervals](large_CIs.html) (Clay Ford, 2022-04-05)      
 Student wondered why confidence intervals on marginal means were so large. Due to small estimated degrees of freedom. 
 
@@ -109,8 +137,15 @@ Student wondered why confidence intervals on marginal means were so large. Due t
 - [Nomogram demo](nomogram_demo.html) (Clay Ford, 2022-03-31)     
 This demonstration is a modification of the example available on the `nomogram()` help page from the {rms} package. It demonstrates a nomogram for a logistic regression model using simulated data.
 
+- [mixed-effect proportional odds mode](simulate_analysis.html) (Clay Ford, 2022-02-25)       
+An example of a mixed-effect proportional odds mode using simulated data and the `clmm()` function from the {ordinal} package.
+
 - [Robustness of t-test](robustness_of_t-test.html) (Clay Ford, 2022-01-07)    
 Simulation demonstrating robustness of t-test to non-normal data.
+
+
+- [ANCOVA example](ancova_example.html) (Clay Ford, 2022-01-07)     
+Quick demo of using Analysis of Covariance to compare trends over time.
 
 - [Identifying peaks in a line plot](finding_peaks.html) (Clay Ford, 2021-06-14)     
 One possible method of identifying peaks in a line plot using the `findpeaks()` function in the {pracma} package.
@@ -127,6 +162,9 @@ Power analysis for a multilevel model with a Likert outcome ranging from 1-5 and
 - [logistic regression for a 2x2 table](logistic_regression_example.html) (Clay Ford, 2021-06-09)      
 Example of using logistic regression to get odds ratio, confidence interval on OR, and the p-value testing null if OR is 1.
 
+
+- [Plotting Derivatives](plot_derivatives.html) (Clay Ford, 2021-05-17)      
+Calculating and plotting first and second derivatives.
 
 - [Comparing Trends with ANCOVA](comparing_slopes.html) (Clay Ford, 2021-04-22)    
 Comparing slopes via ANCOVA and {emmeans} using simulated data.
