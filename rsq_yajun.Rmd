@@ -1,0 +1,93 @@
+---
+title: "Dangers of only looking at R-squared"
+author: "Clay Ford"
+date: '2022-05-09'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+d <- read.csv("yz_data.csv")
+```
+
+Fit model with no intercept.
+
+```{r}
+mod_nointercept <- lm(y ~ 0 + x, data = d)
+summary(mod_nointercept)
+```
+
+Plot data and fitted line.
+
+```{r}
+plot(y ~ x, data = d)
+abline(mod_nointercept)
+```
+
+R-squared seems high until you zoom out.
+
+```{r}
+plot(y ~ x, data = d, ylim = c(0,7)) # zoom out on y-axis
+abline(mod_nointercept)
+```
+
+The line appears to be a better fit when viewed like this and reveals why R-squared is high. However you can see this is a poor-fitting model in the sense it systematically under predicts to about x = 5 and then over-predicts past x = 6. You really don't need an R-square or p-value to tell you this.
+
+A simple diagnostic plot of fitted values versus residuals also reveals how poorly the model fits. A good fitting model should show even random scatter around 0. This is a textbook case of a poor fit.
+
+```{r}
+# residuals vs fitted
+plot(mod_nointercept, which = 1)
+```
+
+A good fitting model in this case requires a non-linear effect. One way to fit a non-linear effect is via splines. Below `ns` is a natural spline function. The `df` argument dictates how flexible we want the fit to be. Higher degree of freedom means more wiggle.
+
+```{r}
+library(splines)
+m <- lm(y ~ ns(x, df = 7), data = d)
+plot(y ~ x, data = d)
+lines(d$x, fitted(m))
+```
+
+The residuals versus fitted values plot shows a better fit, but still not great in the lower range. However notice the range of residuals is only (-0.1, 0.05). 
+
+```{r}
+plot(m, which = 1)
+```
+
+We can zoom out using the `extend.ylim.f` argument. 
+
+```{r}
+plot(m, which = 1, extend.ylim.f = 1.5)
+
+```
+
+Another way may be to consider just regressing y on a log-transformed x. I'm pretty sure this is what Excel does when you fit an "exponential" model.
+
+```{r}
+m2 <- lm(y ~ log(x + 0.1), data = d)
+plot(y ~ x, data = d)
+lines(d$x, fitted(m2))
+```
+
+The residual versus fitted plot looks pretty bad, but again notice the small range of the y-axis.
+
+```{r}
+plot(m2, which = 1)
+```
+
+If we zoom out it's not so bad
+
+```{r}
+plot(m2, which = 1, extend.ylim.f = 1.5)
+
+```
+
+I don't know what this data is so perhaps these residuals are quite large. 
+
+You want to be careful not to chase the perfect fit and end up overfitting your model. Then your model is great for the sample but does not generalize well to future data.
+

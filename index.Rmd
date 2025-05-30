@@ -9,6 +9,8 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ###  Reports generated for various consultations for the UVA StatLab.
 
+Unless otherwise noted, reports are by Clay Ford. 
+
 - [Extracting data from UpSet Plot](extract_data_upset_plot.html) (2025-04-10)     
 How to extract specific interactions from a data frame identified in an UpSet plot.
 
@@ -56,6 +58,9 @@ Demonstration of using the `hetcor()` function in the {polycor} package using si
 - [Polyserial and Polychoric Correlation](polychoric_and_polyserial_correlations.html) (2024-09-24)      
 An intro to polyserial and polychoric correlation using the {polycor} package. 
 
+
+- [Paired t-test as linear model](paired_t_test_as_linear_model.html) (2024-09-05)     
+How to perform a paired t-test as a linear model and calculate Cohen's d. Also includes an example of calculating Cohen's d following multiple imputation.
 
 - [Marginal effects and plots for 2-way and 3-way interactions](analysis_example.html) (2024-08-19)      
 Demo of Bayesian modeling of 2-way and 3-way interactions (via {rstanarm}) using the {emmeans} and {ggeffects} packages. Uses simulated data.
@@ -131,12 +136,18 @@ Example of a Nested Factorial Experiment from _Statistical Models in S_.
 Quick demo of how to use Holm method to adjust p-values.
 
 
+- [EFA with binary data](EFA_with_binary_data.html) (2022-07-28)     
+Example of performing exploratory factor analysis with binary data. Uses simulated data. 
+
 - [Three approaches to logistic regression in R](three_approaches_to_logistic_regression_in_R.html) (2022-07-18)    
 Demo of three ways to fit a logistic regression model in R. 
 
 - [Comparing a mediation analysis and with a t-test](mediation_analysis_ttest.html) (2022-05-25)       
 The difference in means from a t-test is the “Total Effect” in mediation analysis.
 
+
+- [Dangers of only looking at R-squared](rsq_yajun.html) (2022-05-09)      
+Demo of how R-squared can be misleadingly high despite a poor-fitting model. Includes demonstrations of non-linear models. 
 
 - [Mediation Analysis with Multiple Imputation](MA_with_MI.html) (2022-04-25)      
 An attempt at mediation analysis with multiply imputed data using the {mice} and {mediation} packages. 

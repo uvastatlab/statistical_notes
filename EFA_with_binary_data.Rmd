@@ -1,0 +1,113 @@
+---
+title: "EFA with Binary Data"
+author: "Clay Ford"
+date: "2022-07-28"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Simulate Data
+
+Below I do the following to generate correlated binary data:
+
+1. Create a 300 x 4 matrix from random uniform values ranging from [0,1]. We'll use these as probabilities. _Each row_ represents a subject. _Each column_ represents a latent factor. So we have 300 subjects and 4 factors.
+2. Use the values in column 1 as probabilities for generating zeroes and ones. The `rbinom()` function generates random data from a binomial distribution. Think of it as flipping 5 coins with the given probability and observing 5 results: 1 = head, 0 = tails. A result of `0, 0, 1, 1, 0` would mean two heads and three tails. If a subject has a high probability, they're more likely to see more ones, and thus score higher on this factor.
+3. Repeat step 2 for each column of the matrix (y). 
+4. Combine all groups into one matrix.
+
+```{r}
+set.seed(1234)
+y <- matrix(runif(300 * 4), ncol = 4)
+g1 <- sapply(y[,1], function(x)rbinom(n = 5, size = 1, prob = x)) |> t()
+g2 <- sapply(y[,2], function(x)rbinom(n = 5, size = 1, prob = x)) |> t()
+g3 <- sapply(y[,3], function(x)rbinom(n = 5, size = 1, prob = x)) |> t()
+g4 <- sapply(y[,4], function(x)rbinom(n = 5, size = 1, prob = x)) |> t()
+d <- cbind(g1, g2, g3, g4)
+head(d)
+```
+
+## Visualize Correlation matrix
+
+With our data simulated, let's visualize the correlation matrix. First we calculate correlation using the `tetrachoric()` function from the psych package. Then we visualize it using `corrplot()`.
+
+```{r message=FALSE}
+library(psych)
+library(corrplot)
+
+r <- tetrachoric(d)$rho
+corrplot::corrplot(r, type = "upper", diag = F)
+```
+
+We see we have four clumps of correlated items, as we should since we simulated the data that way.
+
+## EFA
+
+Now let's try some factor analyses. First we use the default settings. It seems to run fine and recover the factors.
+
+```{r message=FALSE}
+fa_default <- fa(r = d, fm = "minres", nfactors = 4)
+print(fa_default$loadings, cut = 0.3)
+```
+
+It would probably be better to use `cor="tet"`, which creates the correlation matrix using the `tetrachoric()` function. This results in higher loadings but the same basic result: 
+
+```{r}
+fa_mr <- fa(r = d, fm = "minres", nfactors = 4, cor = "tet")
+print(fa_mr$loadings, cut = 0.3)
+```
+
+Using maximum likelihood doesn't seem to make a difference. 
+
+```{r}
+fa_ml <- fa(r = d, fm = "ml", nfactors = 4, cor = "tet")
+print(fa_ml$loadings, cut = 0.3)
+```
+
+Neither does OLS.
+
+```{r}
+fa_ols <- fa(r = d, fm = "ols", nfactors = 4, cor = "tet")
+print(fa_ols$loadings, cut = 0.3)
+```
+
+## Working with "bad" data
+
+Let's generate crazy 0/1 data with no correlation and see what happens.
+
+```{r}
+set.seed(666)
+d_bad <- matrix(data = sample(0:1, size = 300 * 20, replace = TRUE), 
+                ncol = 20)
+r2 <- tetrachoric(d_bad)$rho
+corrplot::corrplot(r2, type = "upper", diag = F)
+```
+
+Amazingly, this seems to converge to something using the default correlation calculations, though of course it's nonsense. 
+
+```{r}
+fa2_default <- fa(r = d_bad, fm = "minres", nfactors = 4)
+print(fa2_default$loadings, cut = 0.3)
+```
+
+It would seem more appropriate to use `cor = "tet"` since our data is 0/1. This results in warnings about a mysterious "ultra-Heywood case"! While this seems weird and troublesome, in this case it's probably working as intended. That's probably a sign we're looking for factors that don't exist. (Warnings can be a good thing.) A Heywood case is when a uniqueness falls below 0.
+
+```{r}
+fa2_mr <- fa(r = d_bad, fm = "minres", nfactors = 4, cor = "tet")
+fa2_mr$uniquenesses[fa2_mr$uniquenesses < 0]
+```
+
+Reducing the number of factors to 1 eliminates the warnings, but of course this "factor" is due to noise. 
+
+```{r}
+fa2_mr <- fa(r = d_bad, fm = "minres", nfactors = 1, cor = "tet")
+print(fa2_mr$loadings, cut = 0.3)
+
+```
+
+
+<br>
+<br>
+<br>

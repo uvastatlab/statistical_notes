@@ -1,0 +1,98 @@
+---
+title: "paired t-test as linear model"
+author: "Clay Ford"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+We'll use the sleep data that comes with R. Not really pre-post data, but we'll pretend it is.
+
+```{r}
+sleep2 <- reshape(sleep, direction = "wide",
+              idvar = "ID", timevar = "group")
+sleep2$ID <- NULL
+names(sleep2) <- c("pre", "post")
+```
+
+10 subjects with pre and post data:
+
+```{r}
+sleep2
+```
+
+
+Traditional pairwise t-test:
+
+```{r}
+t.test(sleep2$post, sleep2$pre, paired = TRUE)
+```
+
+Now do pairwise t-test as a linear model:
+
+```{r}
+m <- lm(I(post - pre) ~ 1, data = sleep2)
+summary(m)
+```
+
+The Intercept coefficient is the mean difference. The residual standard error is the pooled standard deviation. We can use these to calculate Cohen's d:
+
+```{r}
+# 1.580/1.23
+coef(m)/sigma(m)
+```
+
+We can check this using the `cohens_d()` function in the {rstatix} package. Notice the data for this function needs to be in long format
+
+```{r message=FALSE}
+library(rstatix)
+cohens_d(data = sleep, formula = extra ~ group, paired = TRUE, 
+         ref.group = "2")
+```
+
+By the way, there's nothing fancy about this calculation. It's just the mean of the differences divided by the standard deviation of the differences. We can calculate it with the raw data:
+
+```{r}
+# cohen's d
+mean(sleep2$post - sleep2$pre)/sd(sleep2$post - sleep2$pre)
+```
+
+
+Now let's add some missing data to the sleep data.
+
+```{r}
+sleep2[3,1] <- NA
+sleep2[5,2] <- NA
+```
+
+Now do multiple imputation with {mice} and then do paired t-test via `lm()`
+
+```{r message=FALSE}
+library(mice)
+set.seed(12)
+imp <- mice(sleep2, print=F)
+fit <- with(data = imp, exp = lm(I(post - pre) ~ 1))
+summary(pool(fit))
+```
+
+The estimated mean difference is -1.708, but notice that the residual standard error is not returned, so we can't do our clever calculation of Cohen's d!
+
+However we can do it "by hand" using the raw imputed data. Here's one way:
+
+```{r}
+# extract all the imputed data sets
+imp_d <- complete(imp, action = "all")
+# apply cohen's d to all data sets
+sapply(imp_d, function(x)mean(x[[2]] - x[[1]])/sd(x[[2]] - x[[1]]))
+```
+
+Take the mean of all those to get a single estimated Cohen's d:
+
+```{r}
+cd <- sapply(imp_d, function(x)mean(x[[2]] - x[[1]])/sd(x[[2]] - x[[1]]))
+mean(cd)
+```
+
