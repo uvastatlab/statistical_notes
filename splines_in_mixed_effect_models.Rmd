@@ -1,0 +1,115 @@
+---
+title: "splines in mixed-effect models"
+author: "Clay Ford"
+date: '2022-04-13'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## generate data
+
+First generate data for 10 subjects (`g`) with 20 observations each (`n`). The `x` predictor ranges from 1:20. The x2 predictor is `x - 13` for `x > 13`. The `r`, `z0`, and `z1` vectors add noise. `z0` adds subject-specific noise to the intercept, `z1` adds subject-specific noise to the slope, and `r` adds noise to all observations. All noise is drawn from a Normal distribution with mean 0 and some fixed standard deviation, as is assumed by linear mixed-effect models. 
+
+```{r}
+n <- 20
+g <- 10
+x <- rep(1:n, g)
+id <- rep(1:g, each = n)
+x2 <- ifelse((x - 13) > 0, (x - 13), 0)
+set.seed(2)
+x3 <- runif(n = n * g)
+r <- rnorm(length(x), sd = 0.8)
+z0 <- rnorm(g, sd = 0.5)
+z1 <- rnorm(g, sd = 0.2)
+y <- (10 + z0[id]) + (-4 + z1[id])*x + 05*x3 + (6 + z1[id])*x2 + r 
+d <- data.frame(id = factor(id), y, x, x3)
+```
+
+## plot the data
+
+Quick plot of the data with subjects color-coded.
+
+```{r}
+library(ggplot2)
+ggplot(d) +
+  aes(x, y, color = id, group = id) +
+  geom_point() +
+  geom_line()
+```
+
+Quick plot of the data with a smooth trend line, which in this case is a loess curve. 
+
+```{r}
+ggplot(d) +
+  aes(x, y) +
+  geom_point() +
+  geom_smooth()
+```
+
+## fit mixed-effect model
+
+Below we fit a mixed-effect model that says the intercept and slope are conditional on subject: `(x|id)`. We also specify that `x` be modeled a cubic spline using the `ns` function from the splines package. `df=3` says we think the trajectory could change direction three times. 
+
+```{r message=FALSE}
+library(lme4)
+library(splines)
+m1 <- lmer(y ~ ns(x, df = 3) + x3 + (x|id), data = d)
+```
+
+The summary output is all but impossible to interpret.
+
+```{r}
+summary(m1, corr = FALSE)
+```
+
+So we can plot the smooth trend line and visually interpret. 
+
+```{r}
+library(ggeffects)
+eff <- ggpredict(m1, "x[all]")
+plot(eff, add.data = TRUE)
+```
+
+
+## piecewise spline
+
+Here we fit something closer to the "correct" model. We use the **segmented** package to find the breakpoint. The **segmented** package does not work with lme4, but does (sort of) work with nlme, an older but still very powerful mixed-effect modeling package. Another quirk is that the variable with the breakpoint cannot have associated random effects, so we have to fit a random-intercept model (`~1|id`). First we fit the model using `lme` and then use `segmented.default` to estimate the breakpoint. The `npsi = 1` argument says we think there is one breakpoint.
+
+```{r message=FALSE, warning=FALSE}
+library(segmented)
+library(nlme)
+m2 <- lme(y ~ x, random = ~ 1|id, data = d)
+sm1 <- segmented.default(m2, seg.Z = ~ x, npsi = 1) 
+```
+
+Use the `fixef` function to get the estimated slopes for each line. The estimated values are very close to the "true" values we used above to generate the data, -4 and 6. 
+
+```{r}
+fixef(sm1)
+```
+
+The estimated breakpoint is extracted with the `confint.segmented` function. The true value of 13 falls well within the 95% CI.
+
+```{r}
+confint.segmented(sm1, "x", .coef=fixef(sm1))
+```
+
+We might report this as follows:
+
+$$y = 10.03 + -3.95x \hspace{1cm} x \le 13.03$$
+
+$$y = 10.03 + -3.95x + 6.05(x - 13.03)\hspace{1cm} x > 13.03$$
+
+
+Finally we can get a basic plot with a confidence ribbon.
+
+```{r}
+plot.segmented(sm1, "x", .coef=fixef(sm1), conf.level=.95)
+```
+
+There's probably a way to extract the values and make a nicer looking plot with ggplot2, but I'm not pursuing that.
+
+<br><br><br><br>

@@ -9,9 +9,11 @@
 <meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
 
 
+<meta name="author" content="Clay Ford" />
 
+<meta name="date" content="2023-01-07" />
 
-<title>UVA StatLab Statistical Notes</title>
+<title>dummy coding versus effects coding</title>
 
 <script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
 // be compatible with the behavior of Pandoc < 2.8).
@@ -348,242 +350,152 @@ display: none;
 
 
 
-<h1 class="title toc-ignore">UVA StatLab Statistical Notes</h1>
+<h1 class="title toc-ignore">dummy coding versus effects coding</h1>
+<h4 class="author">Clay Ford</h4>
+<h4 class="date">2023-01-07</h4>
 
 </div>
 
 
-<div id="reports-generated-for-various-consultations-for-the-uva-statlab." class="section level3">
-<h3>Reports generated for various consultations for the UVA
-StatLab.</h3>
-<ul>
-<li><p><a href="extract_data_upset_plot.html">Extracting data from UpSet
-Plot</a> (2025-04-10)<br />
-How to extract specific interactions from a data frame identified in an
-UpSet plot.</p></li>
-<li><p><a href="tukey_hsd_demo.html">Demo of Tukey HSD</a>
-(2025-04-02)<br />
-Quick demo of how Tukey HSD corrects p-values for multiple
-comparisons.</p></li>
-<li><p><a href="glm_families_and_links.html">Understanding the log link
-in a Poisson model</a> (2025-03-21)<br />
-Why we use the log link with Poisson models (i.e.,
-<code>family = poisson(link = &quot;log&quot;)</code>).</p></li>
-<li><p><a href="investigating_multicollinearity.html">Investigating
-Multicolinearity</a> (2025-03-19)<br />
-Investigating multicolinearity and challenging idea of inspecting
-pairwise correlations before fitting a model and dropping highly
-correlated predictors.</p></li>
-<li><p><a href="Correlational_Analysis_in_R.html">analyze correlational
-data with treatments</a> (2025-02-03)<br />
-Assessing correlation between multiple sets of variables stratified by a
-treatment variable. Uses the <code>r.test()</code> function from the
-{psych} package.</p></li>
-<li><p><a href="Correlational_Analysis_in_R.html">Repeated Measures
-ANOVA examples</a> (2025-01-29)<br />
-Two examples of repeated measures ANOVA: (1) Using raw follow-up data as
-the outcome with baseline as a covariate, and (2) Using change scores as
-the outcome. I prefer the first method.</p></li>
-<li><p><a href="compare_gpp_models.html">Comparing self-starting
-Michaelis-Menten Models</a> (2025-01-15)<br />
-How to compare two fitted curves using an interaction in a
-<code>nlme::gnls()</code> model.</p></li>
-<li><p><a href="ggeffects_margin_argument.html">Understanding the
-{ggeffects} predict_response() margin argument</a> (2025-01-10)<br />
-Elaborating on the {ggeffects} vignette, <a href="https://strengejacke.github.io/ggeffects/articles/technical_differencepredictemmeans.html">Difference
-Between Marginalization Methods: The margin Argument</a>.</p></li>
-<li><p><a href="intro_mixed_effect_modeling.html">Intro to Mixed-Effect
-Modeling</a> (2024-12-18)<br />
-Introduces mixed-effect modeling using simulated data and compares the
-results to wrong and older methods.</p></li>
-<li><p><a href="paired_t_test_as_model.html">Paired t-tests as
-mixed-effect model</a> (2024-11-22)<br />
-How to run many paired t-tests as a single mixed-effect model. Uses
-simulated data.</p></li>
-<li><p><a href="tidyLPA.html">tidyLPA notes</a> (Clay Ford and Lauren
-Brideau, 2024-11-01)<br />
-Notes on using the {tidyLPA} package and how it relates to the {mclust}
-package.</p></li>
-<li><p><a href="mixed-effect_ANOVA.html">Mixed-Effect Modeling for
-ANOVA</a> (2024-10-08)<br />
-Demo of implementing ANOVA analysis for multilevel data.</p></li>
-<li><p><a href="using_polycor_hetcor.html">Using polycor::hetcor</a>
-(2024-09-27)<br />
-Demonstration of using the <code>hetcor()</code> function in the
-{polycor} package using simulated data.</p></li>
-<li><p><a href="polychoric_and_polyserial_correlations.html">Polyserial
-and Polychoric Correlation</a> (2024-09-24)<br />
-An intro to polyserial and polychoric correlation using the {polycor}
-package.</p></li>
-<li><p><a href="analysis_example.html">Marginal effects and plots for
-2-way and 3-way interactions</a> (2024-08-19)<br />
-Demo of Bayesian modeling of 2-way and 3-way interactions (via
-{rstanarm}) using the {emmeans} and {ggeffects} packages. Uses simulated
-data.</p></li>
-<li><p><a href="non_linear_mlm_with_comparisons.html">Post-hoc
-Comparisons with non-linear models</a> (2024-07-15)<br />
-Simple demo of using <code>emmeans()</code> on a non-linear
-predictor.</p></li>
-<li><p><a href="term_plots.html">Demo of Term plots</a>
-(2024-06-25)<br />
-Demonstration of using term plots to detect departures from linearity
-for coefficients. Shows the base R <code>termplot()</code> and
-<code>car::crPlots()</code> functions.</p></li>
-<li><p><a href="assessing_residuals.html">Assessing residuals with
-lineup lots</a> (2024-04-05)<br />
-Using lineup plots to better interpret a QQ plot of model
-residuals.</p></li>
-<li><p><a href="cld.html">Compact Letter Displays</a> (2024-03-24)<br />
-How to create and interpret Compact Letter Displays, though <a href="https://stats.stackexchange.com/questions/275832/interpreting-compact-letter-displays-and-tukey-multiple-comparisons-from-glmm#comment829280_275832">some
-people don’t like them</a>.</p></li>
-<li><p><a href="complex_reshaping_example.html">Complex reshaping
-example</a> (2024-02-15)<br />
-The data set in question had six different sets of variables that needed
-to be reshaped into “long” format. Each set was collected over five
-waves. This shows how to do the reshaping using
-<code>pivot_longer()</code>.</p></li>
-<li><p><a href="Multivariate_Paired_T_Test.html">Multivariate Paired
-Hotelling T Square Test</a> (2024-02-27)<br />
-How to implement a Multivariate Paired Hotelling T Square Test in R and
-SPSS.</p></li>
-<li><p><a href="forced_oneway_anova.html">Forced One-way ANOVA</a>
-(2023-12-01)<br />
-Convert a two-way ANOVA into a one-way ANOVA.</p></li>
-<li><p><a href="multilevel_quantile_regression.html">Multilevel Quantile
-Regression</a> (2023-10-23)<br />
-Example of Multilevel Quantile Regression using {lqmm} and simulated
-data.</p></li>
-<li><p><a href="dw_nc4_files.html">Data wrangling nc4 files</a>
-(2023-10-18)<br />
-Example of extracting values from nc4 object (netCDF) and converting to
-data frame.</p></li>
-<li><p><a href="recoding_example.html">Recoding example</a>
-(2023-10-06)<br />
-Recoding example using a lookup table.</p></li>
-<li><p><a href="example_analysis.html">Multi-level model example using
-simulated data</a> (2023-10-03)<br />
-Example of multi-level model written for someone who was brand new to R.
-Includes demo of {emmeans} and {ggeffects}.</p></li>
-<li><p><a href="multilevel_model_example.html">Multilevel model example
-with 3 nested levels</a> (2023-09-15)<br />
-Example of a multilevel model with 3 levels of nested groups. Uses
-simulated data.</p></li>
-<li><p><a href="consultation_summary_2023-08-28.html">Data wrangling
-consultation</a> (2023-08-28)<br />
-Data wrangling tasks: (1) drop any groups with less than 10 rows, (2)
-drop rows with runs of zeroes greater than or equal to 5.</p></li>
-<li><p><a href="emmeans_examples.html">Examples of emmeans</a>
-(2023-03-24)<br />
-Examples of using emmeans after fitting mixed-effect model, including
-estimating differences in differences.</p></li>
-<li><p><a href="statistical_analysis_approaches.html">Various t-test
-alternatives</a> (2023-02-21)<br />
-Shows alternatives to t-tests, including log-transformed t-tests,
-Wilcoxon, permutation tests, and bootstrap.</p></li>
-<li><p><a href="dummy_versus_effects_coding.html">Dummy coding versus
-effects coding</a> (2023-01-07)<br />
-Demonstrates differences in coefficient interpretations for dummy coding
-versus effects coding. Uses simulated data.</p></li>
-<li><p><a href="Multilevel_model_for_discrete_ordered_data.html">Multilevel model
-for discrete ordered data</a> (2022-11-04)<br />
-Demo of fitting a multilevel model for an ordered categorical outcome.
-Uses the {ordinal} and {emmeans} packages.</p></li>
-<li><p><a href="split_violin_plots.html">Split violin plots</a>
-(2022-10-18)<br />
-Demo of how to create split violin plots using
-<code>introdataviz::geom_split_violin()</code></p></li>
-<li><p><a href="stats_filter_function.html">The stats::filter()
-function</a> (2022-10-12)<br />
-How to use the the base R <code>filter()</code> function to calculate
-moving averages.</p></li>
-<li><p><a href="logistic_regression_interactions.html">Logistic
-regression interactions</a> (2022-09-19)<br />
-How to interpret and visualize 2-level categorical variable interactions
-in a logistic regression model.</p></li>
-<li><p><a href="nested_anova.html">Nested Factorial Experiment</a>
-(2022-09-19)<br />
-Example of a Nested Factorial Experiment from <em>Statistical Models in
-S</em>.</p></li>
-<li><p><a href="adjusted_pvalues_in_R.html">How to adjust p-values using
-R</a> (2022-09-13)<br />
-Quick demo of how to use Holm method to adjust p-values.</p></li>
-<li><p><a href="three_approaches_to_logistic_regression_in_R.html">Three
-approaches to logistic regression in R</a> (2022-07-18)<br />
-Demo of three ways to fit a logistic regression model in R.</p></li>
-<li><p><a href="mediation_analysis_ttest.html">Comparing a mediation
-analysis and with a t-test</a> (2022-05-25)<br />
-The difference in means from a t-test is the “Total Effect” in mediation
-analysis.</p></li>
-<li><p><a href="MA_with_MI.html">Mediation Analysis with Multiple
-Imputation</a> (2022-04-25)<br />
-An attempt at mediation analysis with multiply imputed data using the
-{mice} and {mediation} packages.</p></li>
-<li><p><a href="splines_in_mixed_effect_models.html">Splines in
-mixed-effect models</a> (2022-04-13)<br />
-Demo of fitting splines in mixed-effect models. Also includes demo of
-piecewise splines using the {segmented} package. Uses simulated
-data.</p></li>
-<li><p><a href="large_CIs.html">Explaining large confidence
-intervals</a> (2022-04-05)<br />
-Student wondered why confidence intervals on marginal means were so
-large. Due to small estimated degrees of freedom.</p></li>
-<li><p><a href="nomogram_demo.html">Nomogram demo</a> (2022-03-31)<br />
-This demonstration is a modification of the example available on the
-<code>nomogram()</code> help page from the {rms} package. It
-demonstrates a nomogram for a logistic regression model using simulated
-data.</p></li>
-<li><p><a href="simulate_analysis.html">mixed-effect proportional odds
-mode</a> (2022-02-25)<br />
-An example of a mixed-effect proportional odds mode using simulated data
-and the <code>clmm()</code> function from the {ordinal}
-package.</p></li>
-<li><p><a href="robustness_of_t-test.html">Robustness of t-test</a>
-(2022-01-07)<br />
-Simulation demonstrating robustness of t-test to non-normal
-data.</p></li>
-<li><p><a href="ancova_example.html">ANCOVA example</a>
-(2022-01-07)<br />
-Quick demo of using Analysis of Covariance to compare trends over
-time.</p></li>
-<li><p><a href="finding_peaks.html">Identifying peaks in a line plot</a>
-(2021-06-14)<br />
-One possible method of identifying peaks in a line plot using the
-<code>findpeaks()</code> function in the {pracma} package.</p></li>
-<li><p><a href="bootstrap_example.html">Bootstrapped diff in means</a>
-(2021-12-11)<br />
-Example of implementing a bootstrapped difference in means as an
-alternative to a t-test using the {boot} package in R.</p></li>
-<li><p><a href="power_analysis_simulation.html">Multilevel Model power
-analysis</a> (2021-10-04)<br />
-Power analysis for a multilevel model with a Likert outcome ranging from
-1-5 and a simple binary treatment variable. Presents two approaches: (1)
-manual simulation, and (2) the {simr} package.</p></li>
-<li><p><a href="logistic_regression_example.html">logistic regression
-for a 2x2 table</a> (2021-06-09)<br />
-Example of using logistic regression to get odds ratio, confidence
-interval on OR, and the p-value testing null if OR is 1.</p></li>
-<li><p><a href="plot_derivatives.html">Plotting Derivatives</a>
-(2021-05-17)<br />
-Calculating and plotting first and second derivatives.</p></li>
-<li><p><a href="comparing_slopes.html">Comparing Trends with ANCOVA</a>
-(2021-04-22)<br />
-Comparing slopes via ANCOVA and {emmeans} using simulated data.</p></li>
-<li><p><a href="glmm.html">Demo of Generalized Linear Mixed Model</a>
-(2021-02-12)<br />
-A demonstration of binomial GLMM using simulated data.</p></li>
-<li><p><a href="cramers_v.html">CIs for Cramer’s V</a>
-(2021-01-20)<br />
-Demo of calculating CIs for Cramer’s V for a small sample.</p></li>
-<li><p><a href="normality_is_for_residuals.html">Normality is for
-Residuals</a> (2020-11-02)<br />
-The normality assumption in linear modeling (multiple regression) is on
-the residuals, not the dependent or independent variables.</p></li>
-<li><p><a href="stepwise_simulation.html">Stepwise Model Selection
-performing poorly</a> (2020-09-01)<br />
-Demo of stepwise model selection performing poorly in the presence of
-collinearity. <a href="https://discourse.datamethods.org/t/reference-collection-to-push-back-against-common-statistical-myths/1787#p-4596-stepwise-variable-selection-dont-do-it-7">Stepwise
-selection should be avoided anyway</a>.</p></li>
-</ul>
+<p>Question from student:</p>
+<p><em>I’m running some simple linear regression analyses for my
+research, and I’m hoping to get some clarification on when it is
+appropriate to use dummy coding versus effects coding for categorical
+variables. As an example, I’ve tried coding gender as 1 and 0 and also
+as 1 and -1 (as described in the simple effects contrast coding section
+of the article linked below), and I get very different results, so I’m
+not sure which to use or which is more appropriate for my research
+question.</em></p>
+<div id="simulate-data" class="section level2">
+<h2>simulate data</h2>
+<p>We first simulate a vector of genders. Then we calculate y, which is
+12 if male and 14 (ie, 12 + 2) if female. We add noise to the means
+using the <code>rnorm()</code> function with a standard deviation of 2.
+We then calculate the simulated means of each gender. Notice this is a
+<em>balanced design</em>: each group has 50 observations.</p>
+<pre class="r"><code>set.seed(12)
+gender &lt;- rep(c(&quot;male&quot;, &quot;female&quot;), each = 50)
+y &lt;- rnorm(100, mean = 12 + (gender == &quot;female&quot;)*2, sd = 2)
+
+# calculate group means
+means &lt;- aggregate(y ~ gender, FUN = mean)
+means</code></pre>
+<pre><code>##   gender        y
+## 1 female 14.16118
+## 2   male 11.71414</code></pre>
+</div>
+<div id="model-with-dummy-coding" class="section level2">
+<h2>model with dummy coding</h2>
+<p>Now we fit a model with dummy coding. This is also called treatment
+contrasts.</p>
+<pre class="r"><code>gender_dummy &lt;- ifelse(gender == &quot;male&quot;, 0, 1)
+m &lt;- lm(y ~ gender_dummy)
+summary(m)</code></pre>
+<pre><code>## 
+## Call:
+## lm(formula = y ~ gender_dummy)
+## 
+## Residuals:
+##     Min      1Q  Median      3Q     Max 
+## -4.4597 -1.1438 -0.2272  1.1526  4.4299 
+## 
+## Coefficients:
+##              Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)   11.7141     0.2439  48.038  &lt; 2e-16 ***
+## gender_dummy   2.4470     0.3449   7.096 2.04e-10 ***
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## Residual standard error: 1.724 on 98 degrees of freedom
+## Multiple R-squared:  0.3394, Adjusted R-squared:  0.3327 
+## F-statistic: 50.35 on 1 and 98 DF,  p-value: 2.036e-10</code></pre>
+<p>The intercept is the mean of male and the slope is the difference in
+means.</p>
+<pre class="r"><code># intercept: mean of male
+subset(means, gender == &quot;male&quot;)</code></pre>
+<pre><code>##   gender        y
+## 2   male 11.71414</code></pre>
+<pre class="r"><code># slope: difference in means
+means$y[1] - means$y[2] </code></pre>
+<pre><code>## [1] 2.447044</code></pre>
+</div>
+<div id="model-with-effects-coding" class="section level2">
+<h2>model with effects coding</h2>
+<p>Now we fit a model with effects coding.</p>
+<pre class="r"><code>gender_effects &lt;- ifelse(gender == &quot;male&quot;, -1, 1)
+m2 &lt;- lm(y ~ gender_effects)
+summary(m2)</code></pre>
+<pre><code>## 
+## Call:
+## lm(formula = y ~ gender_effects)
+## 
+## Residuals:
+##     Min      1Q  Median      3Q     Max 
+## -4.4597 -1.1438 -0.2272  1.1526  4.4299 
+## 
+## Coefficients:
+##                Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)     12.9377     0.1724  75.031  &lt; 2e-16 ***
+## gender_effects   1.2235     0.1724   7.096 2.04e-10 ***
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## Residual standard error: 1.724 on 98 degrees of freedom
+## Multiple R-squared:  0.3394, Adjusted R-squared:  0.3327 
+## F-statistic: 50.35 on 1 and 98 DF,  p-value: 2.036e-10</code></pre>
+<p>The intercept is the grand mean, and the slope is the absolute
+difference in each group mean from the grand mean.</p>
+<pre class="r"><code># intercept: grand mean
+mean(y)</code></pre>
+<pre><code>## [1] 12.93766</code></pre>
+<pre class="r"><code># slope: absolute difference in each group mean from the grand mean
+abs(mean(y) - means$y)</code></pre>
+<pre><code>## [1] 1.223522 1.223522</code></pre>
+<p>Notice the standard error for the model with effects coding is
+<em>smaller</em> than the standard error for the model with dummy
+coding. This is because the grand mean is estimated more precisely than
+the group means.</p>
+<p>If we don’t have balance in our groups, the interpretation of
+coefficients changes slightly.</p>
+<p>The intercept is the mean of the group means, and the slope is the
+absolute difference in each group mean from the “mean of group
+means”.</p>
+<pre class="r"><code>set.seed(12)
+gender &lt;- sample(c(&quot;male&quot;, &quot;female&quot;), size = 100, replace = TRUE)
+y &lt;- rnorm(100, mean = 12 + (gender == &quot;female&quot;)*2, sd = 2)
+# calculate means
+means &lt;- aggregate(y ~ gender, FUN = mean)
+means</code></pre>
+<pre><code>##   gender        y
+## 1 female 13.97248
+## 2   male 12.32410</code></pre>
+<pre class="r"><code>gender_effects &lt;- ifelse(gender == &quot;male&quot;, -1, 1)
+m3 &lt;- lm(y ~ gender_effects)
+summary(m3)</code></pre>
+<pre><code>## 
+## Call:
+## lm(formula = y ~ gender_effects)
+## 
+## Residuals:
+##     Min      1Q  Median      3Q     Max 
+## -4.2710 -1.3736 -0.0839  1.4237  4.2925 
+## 
+## Coefficients:
+##                Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)     13.1483     0.1932  68.049  &lt; 2e-16 ***
+## gender_effects   0.8242     0.1932   4.266  4.6e-05 ***
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## Residual standard error: 1.907 on 98 degrees of freedom
+## Multiple R-squared:  0.1566, Adjusted R-squared:  0.148 
+## F-statistic:  18.2 on 1 and 98 DF,  p-value: 4.6e-05</code></pre>
+<pre class="r"><code># intercept: mean of group means
+mean(means$y)</code></pre>
+<pre><code>## [1] 13.14829</code></pre>
+<pre class="r"><code># slope: absolute difference in each group mean from &quot;mean of group means&quot;
+abs(means$y - mean(means$y))</code></pre>
+<pre><code>## [1] 0.8241916 0.8241916</code></pre>
 </div>
 
 

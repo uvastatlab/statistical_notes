@@ -1,0 +1,180 @@
+---
+title: "Multilevel model for discrete ordered data"
+author: "Clay Ford"
+format:
+  html:
+    self-contained: true
+editor: visual
+---
+
+## Read in data
+
+```{r}
+#| message: false
+library(ggplot2)
+library(lmerTest)
+library(emmeans)
+library(ggeffects)
+library(ordinal)
+
+d <- readRDS("d.rds")
+```
+
+## Explore data
+
+64 people were observed, 32 in the Control group, 32 in the Treated group. Each subject was observed 20 times. Each observation was counted as a "round". There is a distinction between what happened in the even rounds (2, 4, 6...) versus the odd rounds (1, 3, 5...).
+
+The dependent variable is Decision, which is discrete and ranges from 0 - 4. There is a two-level treatment factor, and two-level factor indicating whether an observation was in an odd-numbered round or not.
+
+```{r}
+summary(d$Decision)
+table(d$Decision)
+
+
+ggplot(d) +
+  aes(x = Decision) +
+  geom_bar() +
+  facet_grid(Odd ~ Treat, labeller = "label_both")
+```
+
+## Option 1: linear mixed effect model
+
+Model mean Decision as a function of Treat, Odd, and their interaction, with a random intercept for subject ID. The interaction appears to be significant. The effect of Treat depends on whether it was an odd-numbered round or not.
+
+```{r}
+m <- lmer(Decision ~ Treat * Odd + (1|ID), data = d)
+summary(m, corr = FALSE)
+car::Anova(m)
+```
+
+Comparing means, there appears to be a difference between groups in the odd rounds. But is that difference practical? Is 1.3 vs 1.9 interesting when the dependent variable is discrete and ranges from 0 - 4?
+
+```{r}
+emmeans(m, pairwise ~ Treat | Odd)
+```
+
+Model diagnostics. The first plot (constant variance assumption) looks suspect and weird because of the discreteness. The second (normality of residuals assumption) looks pretty good, all things considered.
+
+```{r}
+plot(m) # weird
+lattice::qqmath(m) # not bad actually
+```
+
+Visualize difference in expected means with an effect plot:
+
+```{r}
+plot(ggpredict(m, terms = c("Odd", "Treat")))
+```
+
+Linear mixed-effect models are a fancy way to estimate means and standard errors for clustered or repeated-measures data. The observed means are equal to the model estimated means.
+
+```{r}
+aggregate(Decision ~ Odd + Treat, data = d, mean)
+```
+
+Compare these to the model coefficients
+
+```{r}
+fixef(m)
+```
+
+-   Intercept: mean of control group (Treat = 0) in even round (Odd = 0), 2.046875
+
+-   Treat1: difference between treated group (Treat = 1) and control group in the even round, -0.225 = 1.821875 - 2.046875
+
+-   Odd1: difference between Odd and Even rounds for control group, -0.153125 = 1.893750 - 2.046875
+
+-   Treat1:Odd1: the difference in differences between Treated and Control in Odd rounds, and Treated and Control in Even rounds: -0.3375 = (1.331250 - 1.893750) - (1.821875 - 2.046875)
+
+## Option 2: ordinal mixed-effect model
+
+Treat response as ordered category and model cumulative probability.
+
+```{r}
+# format Decision as ordered factor
+d$DecisionF <- factor(d$Decision, levels = 0:4, labels = 0:4, 
+                      ordered = TRUE)
+```
+
+Same basic result as mixed-effect model. Significant interaction between Odd and Treat.
+
+```{r}
+m2 <- clmm(DecisionF ~ Treat * Odd + (1|ID), data = d)
+summary(m2)
+```
+
+How do they interact? Compare estimated probabilities for each Decision level. It appears the difference in Decision happens between Treat and Control in the Odd rounds. (Same result as linear mixed effect model.)
+
+Instead of comparing estimated means, we compare estimated *probability* that Decision = x between Treated and Control groups, conditioned on odd vs even rounds. We see higher probability Treated group chooses 0 or 1, but higher probability control group chooses 2 through 4. (emmeans changes 0:4 to 1:5 for some reason. Irritating...)
+
+```{r}
+emm_m2 <- emmeans(m2, specs = revpairwise ~ Treat | DecisionF * Odd, 
+                  mode = "prob") |> confint()
+emm_m2$contrasts
+```
+
+A plot of the contrasts and their CIs makes this easier to see:
+
+```{r}
+emm_df <- as.data.frame(emm_m2$contrasts)
+
+ggplot(emm_df) +
+  aes(x = DecisionF, y = estimate) +
+  geom_point() +
+  geom_errorbar(mapping = aes(ymin = asymp.LCL, ymax = asymp.UCL), 
+                width = 0.1) +
+  geom_hline(yintercept = 0, linetype = 2) +
+  scale_x_discrete(labels = 0:4) +
+  facet_wrap(~ Odd, labeller = "label_both") +
+  ggtitle("Difference in estimated probabilities: Treat 1 - Treat 0")
+```
+
+## Model coefficients revisited
+
+Recall counts of Decision by Treat and Odd
+
+```{r}
+tab <- xtabs(~ Treat + Decision + Odd, data = d)
+tab_odd1 <- tab[,,2]
+# odd rounds
+tab_odd1
+t(apply(tab_odd1, 1, proportions))
+```
+
+```{r}
+# Estimated probabilities for each level of decision
+emmeans(m2, specs =  ~ DecisionF | Treat * Odd, mode = "prob")
+```
+
+The model coefficients are odds ratios when exponentiated. But since we have an interaction we need to be careful in how we interpret them. We can't just interpret the Treat coefficient because it interacts with Odd. Our model says the effect of Treat depends on whether it was an Odd or Even round.
+
+The effect of Treat in Odd rounds is estimated as follows:
+
+```{r}
+exp(coef(m2)["Treat1"] + coef(m2)["Treat1:Odd1"])
+```
+
+This says the odds a person in the Treated group makes more decisions is about 1 - 0.33 = 0.67 less, or 67% lower, than the odds a person in the Control group makes more decisions. This is reflected in the plot above.
+
+We can calculate this odds ratio by hand using the model coefficients.
+
+Probability of 0 decisions for Treated group in Odd round.
+
+```{r}
+(p_trt_0 <- plogis(coef(m2)["0|1"] - coef(m2)["Treat1"] - 
+                     coef(m2)["Odd1"]- coef(m2)["Treat1:Odd1"]))
+```
+
+Probability of 0 decisions for Control group in Odd round.
+
+```{r}
+(p_ctrl_0 <- plogis(coef(m2)["0|1"] - coef(m2)["Odd1"]))
+```
+
+Take the odds ratio
+
+```{r}
+(p_trt_0/(1 - p_trt_0))/(p_ctrl_0/(1 - p_ctrl_0))
+```
+
+This says the odds that

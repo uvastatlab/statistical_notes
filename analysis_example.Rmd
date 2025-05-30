@@ -1,0 +1,126 @@
+---
+title: "Analysis example"
+author: "Clay Ford"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Simulate data
+
+Below I simulate data with 2-way and 3-way interactions and a random intercept. The total sample size is 200 with 50 observations per group (`univ`). 
+
+```{r}
+# simulate predictors
+set.seed(1)
+n <- 200 # total sample size
+g <- 4   # number of groups
+univ <- gl(n = g, k = n/4)
+x1 <- factor(sample(0:1, size = n, replace = TRUE))
+x2 <- factor(sample(letters[1:g], size = n, replace = TRUE))
+p <- round(runif(n), 2)
+
+# simulate noise
+e <- rnorm(n, mean = 0, sd = 0.1) # within groups (Residual)
+z <- rnorm(g, mean = 0, sd = 0.1) # between groups (Intercept)
+
+# simulate outcome
+y <- (0.2 + z[univ]) + 0.5 * p +
+  0.4 * (x1 == "1") + 
+  -0.2 * (x2 == "b") + 0.2 * (x2 == "c") + 0.4 * (x2 == "d") + 
+  # 2 way interactions
+  -0.3 * p * (x1 == "1") +
+  0.3 * p * (x2 == "b") + 0.5 * p * (x2 == "c") + 0.1 * p * (x2 == "d") +
+  -0.2 * (x1 == "1") * (x2 == "b") + 
+  0.2 * (x1 == "1") * (x2 == "c") +
+  0.4 * (x1 == "1") * (x2 == "d") +
+  # 3 way interactions
+  0.7 * p * (x1 == "1") * (x2 == "b") +
+  0.5 * p * (x1 == "1") * (x2 == "c") +
+  -0.5 * p * (x1 == "1") * (x2 == "d") + e
+  
+# combine into data frame
+d <- data.frame(y, x1, x2, p, univ)
+summary(d)  
+```
+
+This is not quite like your data but allows me to demonstrate the {ggeffects} and {emmeans} packages. 
+
+## Fit the model
+
+This is the correct model to fit since this is the model we used to simulate the data.
+
+```{r echo=FALSE}
+m <- readRDS("m.rds")
+```
+
+```{r message=FALSE, eval=FALSE}
+library(rstanarm)
+m <- stan_lmer(y ~ p * x1 * x2 + (1|univ), data = d, refresh = 0)
+```
+
+The model coefficients are pretty similar to the "true" values we used to simulate the data.
+
+```{r}
+m
+```
+
+The `p` coefficient is about 0.5 with MAD_SD of 0.1. This tells us the main effect of `p` is reliably positive. However notice that several interactions involving `p` appear to be "significant" in the sense that their coefficients are much _larger_ than their MAD_SD. Therefore it's hard to draw any conclusions about the main effect of `p`.
+
+Effect plots and estimated marginal means allow us to dig deeper. 
+
+## Effect plots
+
+Effect plots visualize the model. The {ggeffects} package makes this fairly easy to do. 
+
+```{r message=FALSE}
+library(ggeffects)
+ggpredict(m, terms = c("p", "x1", "x2"), interval = "prediction") |> plot()
+```
+
+This plot helps us understand the nature of the interactions. For example, in lower right plot, when `x2` = "d" and `x1` = 0, the effect of `p` is _positive_ (red line). But when `x2` = d and `x1` = 1, the effect of `p` is _slightly negative_ (blue line). This demonstrates why we should be careful about interpreting the main effect of `p` in the presence of interactions. 
+
+## Marginal effects
+
+The plot above shows the slope (ie, effect) of `p` differing depending on `x1` and `x2`, especially in the lower right plot. But how can we quantify that difference? We can use the `emtrends()` function from the {emmeans} package to help answer this. 
+
+```{r message=FALSE}
+library(emmeans)
+emtrends(m, ~ x1 | x2, var = "p")
+```
+
+When `x2` = "d" and `x1` = 0, the slope of p is 0.654 [0.846, 1.195], but when `x2` = "d" and `x1` = 1, the slope of p is -0.179 [-0.318, -0.0324].
+
+If we like, we can quantify the difference in slopes by piping the result into the `emmeans::pairs()` function:
+
+```{r}
+emtrends(m, ~ x1 | x2, var = "p")  |> pairs()
+```
+
+This tells us the difference in slopes (ie, difference in the `p` coefficient) is about 0.834 [0.637, 1.047]. 
+
+All of this can be done in a Frequentist framework as well.
+
+## References
+
+- Lüdecke D (2018). “ggeffects: Tidy Data Frames of Marginal Effects
+  from Regression Models.” _Journal of Open Source Software_, *3*(26),
+  772. doi:10.21105/joss.00772 <https://doi.org/10.21105/joss.00772>.
+- Lenth R (2024). _emmeans: Estimated Marginal Means, aka Least-Squares
+  Means_. R package version 1.10.3,
+  <https://CRAN.R-project.org/package=emmeans>.
+
+## Computational details
+
+```{r}
+sess <- sessionInfo()
+sess$R.version$version.string
+sess$running
+packageVersion("ggeffects")
+packageVersion("emmeans")
+packageVersion("rstanarm")
+```
+

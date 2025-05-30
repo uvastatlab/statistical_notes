@@ -1,0 +1,95 @@
+---
+title: "dummy coding versus effects coding"
+author: "Clay Ford"
+date: "2023-01-07"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+Question from student:
+
+_I'm running some simple linear regression analyses for my research, and I'm hoping to get some clarification on when it is appropriate to use dummy coding versus effects coding for categorical variables. As an example, I've tried coding gender as 1 and 0 and also as 1 and -1 (as described in the simple effects contrast coding section of the article linked below), and I get very different results, so I'm not sure which to use or which is more appropriate for my research question._
+
+## simulate data
+
+We first simulate a vector of genders. Then we calculate y, which is 12 if male and 14 (ie, 12 + 2) if female. We add noise to the means using the `rnorm()` function with a standard deviation of 2. We then calculate the simulated means of each gender. Notice this is a _balanced design_: each group has 50 observations.
+
+```{r}
+set.seed(12)
+gender <- rep(c("male", "female"), each = 50)
+y <- rnorm(100, mean = 12 + (gender == "female")*2, sd = 2)
+
+# calculate group means
+means <- aggregate(y ~ gender, FUN = mean)
+means
+```
+
+## model with dummy coding
+
+Now we fit a model with dummy coding. This is also called treatment contrasts.
+
+```{r}
+gender_dummy <- ifelse(gender == "male", 0, 1)
+m <- lm(y ~ gender_dummy)
+summary(m)
+```
+
+The intercept is the mean of male and the slope is the difference in means.
+
+```{r}
+# intercept: mean of male
+subset(means, gender == "male")
+
+# slope: difference in means
+means$y[1] - means$y[2] 
+```
+
+## model with effects coding
+
+Now we fit a model with effects coding.
+
+```{r}
+gender_effects <- ifelse(gender == "male", -1, 1)
+m2 <- lm(y ~ gender_effects)
+summary(m2)
+```
+
+The intercept is the grand mean, and the slope is the absolute difference in each group mean from the grand mean.
+
+```{r}
+# intercept: grand mean
+mean(y)
+
+# slope: absolute difference in each group mean from the grand mean
+abs(mean(y) - means$y)
+```
+
+Notice the standard error for the model with effects coding is _smaller_ than the standard error for the model with dummy coding. This is because the grand mean is estimated more precisely than the group means.
+
+If we don't have balance in our groups, the interpretation of coefficients changes slightly. 
+
+The intercept is the mean of the group means, and the slope is the absolute difference in each group mean from the “mean of group means”.
+
+```{r}
+set.seed(12)
+gender <- sample(c("male", "female"), size = 100, replace = TRUE)
+y <- rnorm(100, mean = 12 + (gender == "female")*2, sd = 2)
+# calculate means
+means <- aggregate(y ~ gender, FUN = mean)
+means
+
+gender_effects <- ifelse(gender == "male", -1, 1)
+m3 <- lm(y ~ gender_effects)
+summary(m3)
+
+# intercept: mean of group means
+mean(means$y)
+
+# slope: absolute difference in each group mean from "mean of group means"
+abs(means$y - mean(means$y))
+```
+

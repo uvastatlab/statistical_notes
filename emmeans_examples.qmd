@@ -1,0 +1,116 @@
+---
+title: "Examples of emmeans"
+author: "Clay Ford"
+date: "2023-03-24"
+format:
+  html:
+    embed-resources: true
+---
+
+## Intro
+
+In this document I show how to use {emmeans} after fitting a model to make various comparisons.
+
+## Fit a model
+
+```{r message=FALSE}
+library(lme4)
+# read in data;
+# see get_emergence_data.R
+d <- readRDS(file = "emergence.rds")
+
+# fit logistic regression model with experiment as random effect
+m <- glmer(emergence ~ day * treatment + (1|experiment), 
+           data = d, family = binomial(link = "probit"), 
+           weights = total)
+```
+
+The interaction certainly seems significant.
+
+```{r}
+car::Anova(m)
+```
+
+We can visualize the model using {ggeffects}.
+
+```{r}
+library(ggeffects)
+ggeffect(m, terms = c("day[0:16]", "treatment"), 
+         bias_correction = TRUE) |> plot()
+```
+
+
+## Use {emmeans} to investigate model
+
+Some examples of using emmeans to quantify relationships we see in the plot.
+
+### 1. Compare Cl to Combo at day 16
+
+Specify `pairwise ~ treatment | day` to make all pairwise comparisons, but them set `at = list(day = 16, treatment = c("Cl", "Combo"))` to restrict comparisons to Cl and Combo at Day 16. We set `regrid = "response"` to make comparison in terms of probabilities instead of probits. 
+
+```{r message=FALSE}
+library(emmeans)
+emmeans(m, specs = pairwise ~ treatment | day, 
+        at = list(day = 16, treatment = c("Cl", "Combo")),
+        regrid = "response") 
+```
+
+The output says that Cl is 0.415 at Day 16 and that Combo is 0.117 at Day 16. The difference between them (under contrasts) is about 0.298. That difference appears to reliably positive (ie, "significant"). We can get confidence intervals by piping the result into `confint()`.
+
+```{r}
+emmeans(m, specs = pairwise ~ treatment | day, 
+        at = list(day = 16, treatment = c("Cl", "Combo")),
+        regrid = "response") |>
+  confint()
+
+```
+
+The 95% CI is reported as [0.19,0.41]. The difference in Cl - Combo appears to be at least 0.19, perhaps as high as 0.41. All data in the CI range is plausible. The estimated difference of 0.298 is but one value. Instead of stating with certainty the difference is 0.298 we might say the difference appears to be in the range of [0.19, 0.41].
+
+### 2. Compare Day 10 to Day 16 for all treatments
+
+Is there a difference in emergence between Day 10 and Day 16 within each treatment? The syntax `revpairwise ~ day | treatment` says compare days within treatments in "reverse" order, which in this case means day 16 - day 10. By setting `at = list(day = c(10, 16))` we make predictions at just day 10 and 16. This returns predicted probabilities at days 10 and 16 as well as the difference in probabilities between those days. Each difference is also tested against the null of no difference between days.
+
+```{r}
+emmeans(m, specs = revpairwise ~ day | treatment, 
+        at = list(day = c(10, 16)),
+        regrid = "response")
+```
+
+Again we can pipe into `confint()` for confidence intervals.
+
+```{r}
+emmeans(m, specs = revpairwise ~ day | treatment, 
+        at = list(day = c(10, 16)),
+        regrid = "response") |>
+  confint()
+```
+
+
+### 3. Contrasts of contrasts
+
+In the previous comparison, Ag and Combo had a difference on 0.0876 and 0.0529, respectively, between days 10 and 16. Are those differences significantly different?
+
+This requires a little extra work. First we use emmeans as before without `revpairwise` and save the result.
+
+```{r}
+emg <- emmeans(m, specs = ~ day | treatment, 
+        at = list(day = c(10, 16)),
+        regrid = "response")
+emg
+```
+
+Now we use the `pairs()` function to create the first set of contrasts by "day". This is where the previous example ended
+
+```{r}
+pairs(emg, simple = "day", reverse = TRUE) |> confint()
+```
+
+Now we use `pairs()` _again_ to compare those contrasts, except this time we set `by = NULL`.
+
+```{r}
+pairs(pairs(emg, simple = "day", reverse = TRUE), by = NULL)
+
+```
+
+In row 2 we see the difference in differences between Day 10 and Day 16 for Ag vs Combo is marginally significant at 0.0583. There is possibly some evidence of difference but we probably shouldn't rule out the possibility that a different sample could yield different results.
