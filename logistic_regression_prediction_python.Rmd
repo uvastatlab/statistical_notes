@@ -1,0 +1,166 @@
+---
+title: "Plotting logistic regression probabilities"
+author: "Clay Ford"
+date: '2022-04-15'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r echo=FALSE, message=FALSE}
+birthwt <- readRDS("bwt.Rds")
+```
+
+```{python echo = FALSE}
+birthwt = r.birthwt
+```
+
+Load python modules
+
+```{python}
+import statsmodels.api as sm
+import statsmodels.formula.api as smf
+import pandas as pd
+```
+
+Fit model using R-like syntax and print summary. This takes care of creating all the dummy variables. 
+
+```{python}
+formula = "low ~ age + lwt + race + smoke + ptd + ht + ui + ftv"
+mod1 = smf.glm(formula=formula, data=birthwt,
+               family=sm.families.Binomial()).fit()
+print(mod1.summary())
+```
+
+Make predictions for ptd = 0 and ptd = 1. We want to replicate output of `ggpredict` in R:
+
+```
+# Predicted probabilities of low
+
+ptd | Predicted |       95% CI
+------------------------------
+0   |      0.13 | [0.05, 0.27]
+1   |      0.36 | [0.13, 0.67]
+
+Adjusted for:
+*   age =  23.00
+*   lwt = 121.00
+*  race =  white
+* smoke =      0
+*    ht =      0
+*    ui =      0
+*   ftv =      0
+
+```
+
+Create a Pandas DataFrame for our predictors. Notice these match the output of `ggpredict` above under the "Adjusted for" section. This needs to be a Pandas DataFrame since we used the formula option when fitting the model.
+
+```{python}
+# create dictionary of values
+d = {'age': 23, 'lwt': 123, 'race': "white",
+     'smoke' : "0", 'ptd' : ["0","1"], 'ht': "0", 
+     'ui': "0", 'ftv': "0"}
+# convert dictionary to Pandas DataFrame.
+# Is there a more direct way to do this?
+nd = pd.DataFrame(data=d)
+```
+
+Now plug in our new data (nd) into our model using the `get_prediction` method. See [this page](https://www.statsmodels.org/devel/generated/statsmodels.genmod.generalized_linear_model.GLMResults.html#statsmodels.genmod.generalized_linear_model.GLMResults). This returns the predictions as a `PredictionResults` class. We can access the predicted probabilities using the `predicted_mean` property. See [this page](https://www.statsmodels.org/devel/generated/statsmodels.tsa.base.prediction.PredictionResults.html). 
+
+```{python}
+pred = mod1.get_prediction(exog=nd)
+prob = pred.predicted_mean
+print(prob)
+```
+
+We can use the `conf_int` method to extract the confidence intervals for the predicted probabilities.
+
+```{python}
+ci = pred.conf_int()
+print(ci)
+```
+
+Now we use the matplotlib `errorbar` function to create the plot. I cannot find a seaborn plot for this. (The `pointplot` function will automatically add error bars, but does not appear to allow you to supply the lower and upper values, which we need to do in this case.)
+
+Of course, the `errorbar` function requires _margin of error_, not the lower and upper limits! So we have to do some subtraction to get the lower and upper margin of errors.
+
+```{python}
+lower = [prob[0] - ci[0,0], prob[1] - ci[1,0]]
+upper = [ci[0,1] - prob[0], ci[1,1] - prob[1]]
+```
+
+Finally we can make the plot.
+
+```{python message=FALSE}
+import matplotlib.pyplot as plt
+plt.clf()
+plt.errorbar(x = ["0","1"], y = prob, 
+             yerr=[lower, upper], fmt='ok')
+plt.xlabel('ptd')
+plt.ylabel('low')
+plt.title('Predicted probabilities of low')
+plt.show()
+```
+
+## Linear modeling
+
+```{r echo=FALSE, message=FALSE}
+library(MASS)
+data("whiteside")
+```
+
+
+```{python echo = FALSE}
+whiteside = r.whiteside
+```
+
+
+```{python}
+import statsmodels.api as sm
+import statsmodels.formula.api as smf
+
+model = smf.ols('Gas ~ Insul + Temp + Insul:Temp', data=whiteside)
+results = model.fit() # fit the linear model
+```
+
+```{python}
+print(results.summary())
+```
+
+
+The following code plots model predictions. Each curve on the plot represents a level of the variable "Insul".
+
+```{python}
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+from statsmodels.sandbox.predict_functional import predict_functional
+# create DataFrame (wrt Inusl == "Before") to pass into predict function
+temp = np.linspace(whiteside["Temp"].min(), whiteside["Temp"].max())
+insul_before = ["Before"]*temp.shape[0]
+# whiteside_before = pd.DataFrame({"Temp": temp, "Insul": insul_before})
+whiteside_before = {"Temp": temp, "Insul": insul_before, "Insul:Temp":[0]*temp.shape[0]}
+# pr, cb, fv = predict_functional(results, "Temp", values=whiteside_before, ci_method='scheffe')
+before_predict_object = results.get_prediction(whiteside_before)
+before_predictions = before_predict_object.predicted_mean
+before_ci = before_predict_object.conf_int()
+# create DataFrame (wrt Inusl == "After") to pass into predict function
+insul_after = ["After"]*temp.shape[0]
+whiteside_after = pd.DataFrame({"Temp": temp, "Insul": insul_after, "Insul:Temp":temp})
+after_predictions_object = results.get_prediction(whiteside_after)
+after_predictions = after_predictions_object.predicted_mean
+after_ci = after_predictions_object.conf_int()
+# plot results
+plt.figure()
+plt.plot(temp, before_predictions, color = "red", label="Before")
+plt.fill_between(temp, before_ci[:,0], before_ci[:,1], color = "red", alpha = 0.1)
+plt.plot(temp, after_predictions, color="blue", label="After")
+plt.fill_between(temp, after_ci[:,0], after_ci[:,1], color = "blue", alpha = 0.1)
+plt.legend(title="Insul")
+plt.title("Predicted values of Gas")
+plt.xlabel("Temp")
+plt.ylabel("Gas")
+plt.show()
+```

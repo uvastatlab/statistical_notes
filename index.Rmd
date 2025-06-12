@@ -152,6 +152,9 @@ Demo of how R-squared can be misleadingly high despite a poor-fitting model. Inc
 - [Mediation Analysis with Multiple Imputation](MA_with_MI.html) (2022-04-25)      
 An attempt at mediation analysis with multiply imputed data using the {mice} and {mediation} packages. 
 
+- [Plotting logistic regression probabilities in Python](logistic_regression_prediction_python.html) (2022-04-15)     
+How to create an effect plot for a binary predictor using a logistic regression model in Python. Uses matplotlib and statsmodels.
+
 
 - [Splines in mixed-effect models](splines_in_mixed_effect_models.html) (2022-04-13)     
 Demo of fitting splines in mixed-effect models. Also includes demo of piecewise splines using the {segmented} package. Uses simulated data. 
