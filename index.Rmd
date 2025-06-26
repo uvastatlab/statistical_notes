@@ -11,6 +11,9 @@ knitr::opts_chunk$set(echo = TRUE)
 
 Unless otherwise noted, reports are by Clay Ford. 
 
+- [Measurement Invariance Demo](measurement_invariance_demo.html) (2025-06-26)     
+Example from Chapter 4 of _Latent Variable Modeling Using R_ (Beaujean 2014), Latent Variable Models with Multiple Groups. The example examines if the structure of the WISC-III scale is the same in children with and without manic symptoms. [Book code](https://blogs.baylor.edu/rlatentvariable/sample-page/r-syntax/#Chapter_4_Latent_Variable_Models_with_Multiple_Groups)
+
 - [Extracting data from UpSet Plot](extract_data_upset_plot.html) (2025-04-10)     
 How to extract specific interactions from a data frame identified in an UpSet plot.
 

@@ -1,0 +1,269 @@
+---
+title: "Example of Measurement Invariance"
+author: "Clay Ford"
+date: "2025-06-26"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This example comes from Chapter 4 of Beaujean (2014), Latent Variable Models with Multiple Groups. The example examines if the structure of the WISC-III scale is the same in children with and without manic symptoms. [Source](https://blogs.baylor.edu/rlatentvariable/sample-page/r-syntax/#Chapter_4_Latent_Variable_Models_with_Multiple_Groups)
+
+Load the package we need.
+
+```{r}
+library(lavaan)
+```
+
+
+## Read in data
+
+The data is manually entered as covariance matrices. This is not normally how you would enter data in R. Notice we enter two separate covariance matrices: one for children with manic symptoms and those without.
+
+```{r}
+# variable names
+wisc3.names <- c("Info", "Sim", "Vocab","Comp", 
+                 "PicComp", "PicArr", "BlkDsgn", "ObjAsmb")
+
+# covariance for group with manic symptoms
+manic.cov <- c(9.364, 7.777, 12.461, 6.422, 8.756, 10.112, 
+               5.669, 7.445, 6.797, 8.123, 3.048, 4.922, 
+               4.513, 4.116, 6.200, 3.505, 4.880, 4.899, 
+               5.178, 5.114, 15.603, 3.690, 5.440, 5.220, 
+               3.151, 3.587, 6.219, 11.223, 3.640, 4.641, 
+               4.877, 3.568, 3.819, 5.811, 6.501, 9.797)
+
+# lavaan function to create a covariance matrix
+manic.cov <- lav_matrix_lower2full(manic.cov)
+
+# means of the eight variables
+manic.means <- c(10.09, 12.07, 10.25, 9.96, 10.90, 11.24, 10.30, 10.44)
+
+# label the covariances and means
+colnames(manic.cov) <- rownames(manic.cov)  <- wisc3.names
+names(manic.means) <- wisc3.names
+
+# preview the covariance matrix
+manic.cov
+```
+
+
+Now do the same for the children without manic symptoms.
+
+```{r}
+# covariance for group without manic symptoms
+norming.cov <- c(9.610, 5.844, 8.410, 6.324, 6.264, 9.000, 
+                 4.405, 4.457, 5.046, 8.410, 4.464,  4.547, 
+                 4.512, 3.712, 10.240, 3.478, 2.967, 2.970, 
+                 2.871, 3.802,  10.890, 5.270, 4.930, 4.080, 
+                 3.254, 5.222, 3.590, 11.560, 4.297, 4.594, 
+                 4.356, 3.158, 4.963, 3.594, 6.620, 10.890)
+norming.cov <- lav_matrix_lower2full(norming.cov) 
+
+# means
+norming.means <- c(10.10, 10.30, 9.80, 10.10, 10.10, 10.10, 9.90, 10.20)
+
+# label the covariances and means
+colnames(norming.cov) <- rownames(norming.cov)  <- wisc3.names
+names(norming.means) <- wisc3.names
+
+# preview the covariance matrix
+norming.cov
+```
+
+Finally, combine the covariance matrices, sample sizes, and means into single list objects.
+
+```{r}
+combined.cov <- list(manic = manic.cov, norming = norming.cov)
+combined.n <- list(manic = 81, norming = 200)
+combined.means <- list(manic = manic.means, norming = norming.means)
+```
+
+Now ready to specify the CFA model.
+
+## CFA Model
+
+The model below says there are two factors: Verbal-Comprehension (VC) and Visual-Spatial (VS). The model hypothesizes these two factors are influencing four variables each. The model also says we want to estimate the covariance between the two factors (last line).
+
+```{r}
+wisc3.model <-'
+VC =~ Info + Sim + Vocab + Comp 
+VS =~ PicComp + PicArr + BlkDsgn + ObjAsmb
+VC ~~ VS
+'
+```
+
+We'll also define a vector of fit indices so we can easily request them after fitting a model.
+
+```{r}
+# specify fit indices of interest
+fit.indices <- c("chisq", "df", "cfi", "rmsea", "srmr", "mfi")
+```
+
+## Configural Invariance
+
+This fits the same model to both groups and allows all parameters to be freely estimated. In other words, we're doing a CFA with each group. Notice in the summary output each group's parameters are different.
+
+```{r}
+configural.fit <- cfa(wisc3.model, 
+                      sample.cov = combined.cov,
+                      sample.nobs = combined.n, 
+                      sample.mean = combined.means) 
+summary(configural.fit)
+```
+
+Fit indices look good.
+
+- CFI = comparative fit index (0.95 or greater)
+- RMSEA = root mean square error of approximation (0.06 or lower)
+- SRMR = standardized root mean square residual (0.08 or below)
+- MFI = McDonald's Fit Index (0.95 or greater)
+
+```{r}
+fitMeasures(configural.fit, fit.indices)
+```
+
+And the residuals are small. Notice everything is smaller than 2. That's good.
+
+```{r}
+residuals(configural.fit, type = "normalized")
+```
+
+This is a good fitting model for _each group_. 
+
+## Weak Invariance
+
+Now constrain loadings to be equal between groups. Same code as above with one additional argument: `group.equal = "loadings"`. Notice in the summary output that all the loadings (listed under Latent Variables) are equal in both groups. 
+
+```{r}
+weak.fit <- cfa(wisc3.model, 
+                sample.cov = combined.cov, 
+                sample.nobs = combined.n, 
+                sample.mean = combined.means, 
+                group.equal = "loadings") 
+summary(weak.fit)
+```
+
+According to fit measures this is also a good model.
+
+```{r}
+fitMeasures(weak.fit, fit.indices)
+```
+
+And the residuals look good as well, though they are getting bigger.
+
+```{r}
+residuals(weak.fit, type = "normalized")
+```
+Finally, we could formally compare the models using a Chi-squared difference test (aka, Log-likelihood ratio test). We can do this with the `lavTestLRT()` function. The null hypothesis is no difference between the models. A small p-value provides evidence against this hypothesis and suggests a preference for the more complex model (ie, the model with fewer degrees of freedom). Below there is some evidence against the weak invariance model (p = 0.049), however AIC and BIC metrics suggest otherwise. Lower AIC/BIC values are better and I don't see any reason to reject the weak invariance model.
+
+```{r}
+lavTestLRT(configural.fit, weak.fit)
+```
+
+
+This is also a good model. It appears the manifest (observed) variables for each group are influenced in the same way by the two factors.
+
+## Strong Invariance
+
+Now constrain both loadings and intercepts to be equal. Notice the `group.equal` argument now has a vector: `c("loadings", "intercepts")`. Notice in the summary output that all the loadings (Latent Variables) and Intercepts are equal in both groups. 
+
+```{r}
+strong.fit <- cfa(wisc3.model, 
+                  sample.cov = combined.cov, 
+                  sample.nobs = combined.n, 
+                  sample.mean = combined.means, 
+                  group.equal = c("loadings", "intercepts")) 
+summary(strong.fit)
+```
+
+The fit measures for this model are not so good.
+
+```{r}
+fitMeasures(strong.fit, fit.indices)
+```
+
+But the residuals are mostly OK. The only point of strain is the residual for the "Sim" mean (2.45) in the manic group.
+
+```{r}
+residuals(strong.fit, type = "normalized")
+```
+
+The Chi-squared difference test suggests we reject the strong invariance model for the weak invariance model based on the small p-value. 
+
+```{r}
+lavTestLRT(weak.fit, strong.fit)
+```
+
+For sake of completeness, let's move to the next model.
+
+## Strict Invariance
+
+Now constrain loadings, intercepts and variances to be equal. Notice the `group.equal` argument has the vector: `c("loadings", "intercepts", "residuals")`. Notice in the summary output that all the loadings (Latent Variables), intercepts and variances are equal in both groups. 
+
+
+```{r}
+strict.fit <- cfa(wisc3.model, 
+                  sample.cov = combined.cov, 
+                  sample.nobs = combined.n, 
+                  sample.mean = combined.means, 
+                  group.equal = c("loadings", "intercepts", "residuals"))
+summary(strict.fit)
+```
+
+Fit measures are not too good. The CFI is too low and RMSEA is too high.
+
+```{r}
+fitmeasures(strict.fit, fit.indices)
+```
+
+However, the residuals look good for the most part. The only point of strain is the residual for the "PicCmp" variance (-2.829) in the manic group.
+
+```{r}
+residuals(strict.fit, type = "normalized")
+```
+
+The Chi-squared test favors the strong invariance model based on AIC and p-value, but the BIC actually points to the strict fit. 
+
+```{r}
+lavTestLRT(strong.fit, strict.fit)
+```
+
+
+
+## Partial Strict Invariance
+
+If we want, we can remove constraints for certain parameters using the `group.partial` argument. For example, to allow the variance for PicCmp to be estimated separately between the groups, add the line `group.partial = "PicComp ~~ PicComp"`. In the summary, notice under Variances that "PicComp" gets a separate estimate in each group.
+
+```{r}
+strict.fit2 <- cfa(wisc3.model, 
+                   sample.cov = combined.cov, 
+                   sample.nobs = combined.n,
+                   sample.mean = combined.means, 
+                   group.equal = c("loadings", "intercepts", "residuals"),
+                   group.partial = "PicComp ~~ PicComp")
+summary(strict.fit2)
+```
+
+The fit measures are not great...
+
+```{r}
+fitmeasures(strict.fit2, fit.indices)
+```
+
+But the residuals look pretty good.
+
+```{r}
+residuals(strict.fit2, type = "normalized")
+```
+
+Obviously one has to wonder if we would arrive at the same conclusions using a new sample of data. We don't want to build a model that's too specific to our sample. That's would be overfitting. 
+
+## References
+
+- Beaujean, A. A. (2014) _Latent Variable Modeling Using R_. Routledge.
+- Beaujean, A. A., Freeman, M. J., Youngstrom, E., & Carlson, G. (2012). The structure of cognitive abilities in youths with manic symptoms: a factorial invariance study. Assessment, 19(4), 462–471. <https://doi.org/10.1177/1073191111399037>
+- R Core Team (2025). _R: A Language and Environment for Statistical  Computing_. R Foundation for Statistical Computing, Vienna, Austria.  <https://www.R-project.org/>.
+- Rosseel, Y. (2012). lavaan: An R Package for Structural Equation Modeling. _Journal of Statistical Software_, 48(2), 1-36. <https://doi.org/10.18637/jss.v048.i02>

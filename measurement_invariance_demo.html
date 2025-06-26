@@ -9,9 +9,11 @@
 <meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
 
 
+<meta name="author" content="Clay Ford" />
 
+<meta name="date" content="2025-06-26" />
 
-<title>UVA StatLab Statistical Notes</title>
+<title>Example of Measurement Invariance</title>
 
 <script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
 // be compatible with the behavior of Pandoc < 2.8).
@@ -348,266 +350,1053 @@ display: none;
 
 
 
-<h1 class="title toc-ignore">UVA StatLab Statistical Notes</h1>
+<h1 class="title toc-ignore">Example of Measurement Invariance</h1>
+<h4 class="author">Clay Ford</h4>
+<h4 class="date">2025-06-26</h4>
 
 </div>
 
 
-<div id="reports-generated-for-various-consultations-for-the-uva-statlab." class="section level3">
-<h3>Reports generated for various consultations for the UVA
-StatLab.</h3>
-<p>Unless otherwise noted, reports are by Clay Ford.</p>
+<p>This example comes from Chapter 4 of Beaujean (2014), Latent Variable
+Models with Multiple Groups. The example examines if the structure of
+the WISC-III scale is the same in children with and without manic
+symptoms. <a href="https://blogs.baylor.edu/rlatentvariable/sample-page/r-syntax/#Chapter_4_Latent_Variable_Models_with_Multiple_Groups">Source</a></p>
+<p>Load the package we need.</p>
+<pre class="r"><code>library(lavaan)</code></pre>
+<pre><code>## This is lavaan 0.6-19
+## lavaan is FREE software! Please report any bugs.</code></pre>
+<div id="read-in-data" class="section level2">
+<h2>Read in data</h2>
+<p>The data is manually entered as covariance matrices. This is not
+normally how you would enter data in R. Notice we enter two separate
+covariance matrices: one for children with manic symptoms and those
+without.</p>
+<pre class="r"><code># variable names
+wisc3.names &lt;- c(&quot;Info&quot;, &quot;Sim&quot;, &quot;Vocab&quot;,&quot;Comp&quot;, 
+                 &quot;PicComp&quot;, &quot;PicArr&quot;, &quot;BlkDsgn&quot;, &quot;ObjAsmb&quot;)
+
+# covariance for group with manic symptoms
+manic.cov &lt;- c(9.364, 7.777, 12.461, 6.422, 8.756, 10.112, 
+               5.669, 7.445, 6.797, 8.123, 3.048, 4.922, 
+               4.513, 4.116, 6.200, 3.505, 4.880, 4.899, 
+               5.178, 5.114, 15.603, 3.690, 5.440, 5.220, 
+               3.151, 3.587, 6.219, 11.223, 3.640, 4.641, 
+               4.877, 3.568, 3.819, 5.811, 6.501, 9.797)
+
+# lavaan function to create a covariance matrix
+manic.cov &lt;- lav_matrix_lower2full(manic.cov)
+
+# means of the eight variables
+manic.means &lt;- c(10.09, 12.07, 10.25, 9.96, 10.90, 11.24, 10.30, 10.44)
+
+# label the covariances and means
+colnames(manic.cov) &lt;- rownames(manic.cov)  &lt;- wisc3.names
+names(manic.means) &lt;- wisc3.names
+
+# preview the covariance matrix
+manic.cov</code></pre>
+<pre><code>##          Info    Sim  Vocab  Comp PicComp PicArr BlkDsgn ObjAsmb
+## Info    9.364  7.777  6.422 5.669   3.048  3.505   3.690   3.640
+## Sim     7.777 12.461  8.756 7.445   4.922  4.880   5.440   4.641
+## Vocab   6.422  8.756 10.112 6.797   4.513  4.899   5.220   4.877
+## Comp    5.669  7.445  6.797 8.123   4.116  5.178   3.151   3.568
+## PicComp 3.048  4.922  4.513 4.116   6.200  5.114   3.587   3.819
+## PicArr  3.505  4.880  4.899 5.178   5.114 15.603   6.219   5.811
+## BlkDsgn 3.690  5.440  5.220 3.151   3.587  6.219  11.223   6.501
+## ObjAsmb 3.640  4.641  4.877 3.568   3.819  5.811   6.501   9.797</code></pre>
+<p>Now do the same for the children without manic symptoms.</p>
+<pre class="r"><code># covariance for group without manic symptoms
+norming.cov &lt;- c(9.610, 5.844, 8.410, 6.324, 6.264, 9.000, 
+                 4.405, 4.457, 5.046, 8.410, 4.464,  4.547, 
+                 4.512, 3.712, 10.240, 3.478, 2.967, 2.970, 
+                 2.871, 3.802,  10.890, 5.270, 4.930, 4.080, 
+                 3.254, 5.222, 3.590, 11.560, 4.297, 4.594, 
+                 4.356, 3.158, 4.963, 3.594, 6.620, 10.890)
+norming.cov &lt;- lav_matrix_lower2full(norming.cov) 
+
+# means
+norming.means &lt;- c(10.10, 10.30, 9.80, 10.10, 10.10, 10.10, 9.90, 10.20)
+
+# label the covariances and means
+colnames(norming.cov) &lt;- rownames(norming.cov)  &lt;- wisc3.names
+names(norming.means) &lt;- wisc3.names
+
+# preview the covariance matrix
+norming.cov</code></pre>
+<pre><code>##          Info   Sim Vocab  Comp PicComp PicArr BlkDsgn ObjAsmb
+## Info    9.610 5.844 6.324 4.405   4.464  3.478   5.270   4.297
+## Sim     5.844 8.410 6.264 4.457   4.547  2.967   4.930   4.594
+## Vocab   6.324 6.264 9.000 5.046   4.512  2.970   4.080   4.356
+## Comp    4.405 4.457 5.046 8.410   3.712  2.871   3.254   3.158
+## PicComp 4.464 4.547 4.512 3.712  10.240  3.802   5.222   4.963
+## PicArr  3.478 2.967 2.970 2.871   3.802 10.890   3.590   3.594
+## BlkDsgn 5.270 4.930 4.080 3.254   5.222  3.590  11.560   6.620
+## ObjAsmb 4.297 4.594 4.356 3.158   4.963  3.594   6.620  10.890</code></pre>
+<p>Finally, combine the covariance matrices, sample sizes, and means
+into single list objects.</p>
+<pre class="r"><code>combined.cov &lt;- list(manic = manic.cov, norming = norming.cov)
+combined.n &lt;- list(manic = 81, norming = 200)
+combined.means &lt;- list(manic = manic.means, norming = norming.means)</code></pre>
+<p>Now ready to specify the CFA model.</p>
+</div>
+<div id="cfa-model" class="section level2">
+<h2>CFA Model</h2>
+<p>The model below says there are two factors: Verbal-Comprehension (VC)
+and Visual-Spatial (VS). The model hypothesizes these two factors are
+influencing four variables each. The model also says we want to estimate
+the covariance between the two factors (last line).</p>
+<pre class="r"><code>wisc3.model &lt;-&#39;
+VC =~ Info + Sim + Vocab + Comp 
+VS =~ PicComp + PicArr + BlkDsgn + ObjAsmb
+VC ~~ VS
+&#39;</code></pre>
+<p>We’ll also define a vector of fit indices so we can easily request
+them after fitting a model.</p>
+<pre class="r"><code># specify fit indices of interest
+fit.indices &lt;- c(&quot;chisq&quot;, &quot;df&quot;, &quot;cfi&quot;, &quot;rmsea&quot;, &quot;srmr&quot;, &quot;mfi&quot;)</code></pre>
+</div>
+<div id="configural-invariance" class="section level2">
+<h2>Configural Invariance</h2>
+<p>This fits the same model to both groups and allows all parameters to
+be freely estimated. In other words, we’re doing a CFA with each group.
+Notice in the summary output each group’s parameters are different.</p>
+<pre class="r"><code>configural.fit &lt;- cfa(wisc3.model, 
+                      sample.cov = combined.cov,
+                      sample.nobs = combined.n, 
+                      sample.mean = combined.means) 
+summary(configural.fit)</code></pre>
+<pre><code>## lavaan 0.6-19 ended normally after 93 iterations
+## 
+##   Estimator                                         ML
+##   Optimization method                           NLMINB
+##   Number of model parameters                        50
+## 
+##   Number of observations per group:                   
+##     manic                                           81
+##     norming                                        200
+## 
+## Model Test User Model:
+##                                                       
+##   Test statistic                                53.380
+##   Degrees of freedom                                38
+##   P-value (Chi-square)                           0.050
+##   Test statistic for each group:
+##     manic                                       29.169
+##     norming                                     24.211
+## 
+## Parameter Estimates:
+## 
+##   Standard errors                             Standard
+##   Information                                 Expected
+##   Information saturated (h1) model          Structured
+## 
+## 
+## Group 1 [manic]:
+## 
+## Latent Variables:
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)
+##   VC =~                                               
+##     Info              1.000                           
+##     Sim               1.330    0.153    8.687    0.000
+##     Vocab             1.189    0.138    8.613    0.000
+##     Comp              1.015    0.125    8.129    0.000
+##   VS =~                                               
+##     PicComp           1.000                           
+##     PicArr            1.437    0.274    5.246    0.000
+##     BlkDsgn           1.322    0.234    5.641    0.000
+##     ObjAsmb           1.285    0.220    5.830    0.000
+## 
+## Covariances:
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)
+##   VC ~~                                               
+##     VS                3.086    0.772    3.997    0.000
+## 
+## Intercepts:
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)
+##    .Info             10.090    0.338   29.861    0.000
+##    .Sim              12.070    0.390   30.965    0.000
+##    .Vocab            10.250    0.351   29.191    0.000
+##    .Comp              9.960    0.315   31.648    0.000
+##    .PicComp          10.900    0.275   39.643    0.000
+##    .PicArr           11.240    0.436   25.769    0.000
+##    .BlkDsgn          10.300    0.370   27.843    0.000
+##    .ObjAsmb          10.440    0.346   30.206    0.000
+## 
+## Variances:
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)
+##    .Info              3.742    0.673    5.564    0.000
+##    .Sim               2.564    0.605    4.237    0.000
+##    .Vocab             2.200    0.502    4.379    0.000
+##    .Comp              2.348    0.467    5.027    0.000
+##    .PicComp           2.926    0.592    4.945    0.000
+##    .PicArr            8.806    1.631    5.398    0.000
+##    .BlkDsgn           5.497    1.089    5.046    0.000
+##    .ObjAsmb           4.399    0.916    4.804    0.000
+##     VC                5.507    1.369    4.024    0.000
+##     VS                3.198    0.924    3.462    0.001
+## 
+## 
+## Group 2 [norming]:
+## 
+## Latent Variables:
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)
+##   VC =~                                               
+##     Info              1.000                           
+##     Sim               0.997    0.079   12.607    0.000
+##     Vocab             1.045    0.082   12.778    0.000
+##     Comp              0.768    0.083    9.301    0.000
+##   VS =~                                               
+##     PicComp           1.000                           
+##     PicArr            0.715    0.122    5.854    0.000
+##     BlkDsgn           1.149    0.135    8.542    0.000
+##     ObjAsmb           1.100    0.130    8.464    0.000
+## 
+## Covariances:
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)
+##   VC ~~                                               
+##     VS                4.103    0.661    6.204    0.000
+## 
+## Intercepts:
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)
+##    .Info             10.100    0.219   46.192    0.000
+##    .Sim              10.300    0.205   50.355    0.000
+##    .Vocab             9.800    0.212   46.314    0.000
+##    .Comp             10.100    0.205   49.377    0.000
+##    .PicComp          10.100    0.226   44.748    0.000
+##    .PicArr           10.100    0.233   43.392    0.000
+##    .BlkDsgn           9.900    0.240   41.282    0.000
+##    .ObjAsmb          10.200    0.233   43.822    0.000
+## 
+## Variances:
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)
+##    .Info              3.609    0.455    7.928    0.000
+##    .Sim               2.450    0.354    6.925    0.000
+##    .Vocab             2.453    0.370    6.635    0.000
+##    .Comp              4.857    0.533    9.114    0.000
+##    .PicComp           5.426    0.675    8.034    0.000
+##    .PicArr            8.398    0.897    9.364    0.000
+##    .BlkDsgn           5.215    0.716    7.279    0.000
+##    .ObjAsmb           5.069    0.682    7.434    0.000
+##     VC                5.953    0.928    6.416    0.000
+##     VS                4.763    0.952    5.006    0.000</code></pre>
+<p>Fit indices look good.</p>
 <ul>
-<li><p><a href="measurement_invariance_demo.html">Measurement Invariance
-Demo</a> (2025-06-26)<br />
-Example from Chapter 4 of <em>Latent Variable Modeling Using R</em>
-(Beaujean 2014), Latent Variable Models with Multiple Groups. The
-example examines if the structure of the WISC-III scale is the same in
-children with and without manic symptoms. <a href="https://blogs.baylor.edu/rlatentvariable/sample-page/r-syntax/#Chapter_4_Latent_Variable_Models_with_Multiple_Groups">Book
-code</a></p></li>
-<li><p><a href="extract_data_upset_plot.html">Extracting data from UpSet
-Plot</a> (2025-04-10)<br />
-How to extract specific interactions from a data frame identified in an
-UpSet plot.</p></li>
-<li><p><a href="tukey_hsd_demo.html">Demo of Tukey HSD</a>
-(2025-04-02)<br />
-Quick demo of how Tukey HSD corrects p-values for multiple
-comparisons.</p></li>
-<li><p><a href="glm_families_and_links.html">Understanding the log link
-in a Poisson model</a> (2025-03-21)<br />
-Why we use the log link with Poisson models (i.e.,
-<code>family = poisson(link = &quot;log&quot;)</code>).</p></li>
-<li><p><a href="investigating_multicollinearity.html">Investigating
-Multicolinearity</a> (2025-03-19)<br />
-Investigating multicolinearity and challenging idea of inspecting
-pairwise correlations before fitting a model and dropping highly
-correlated predictors.</p></li>
-<li><p><a href="Correlational_Analysis_in_R.html">analyze correlational
-data with treatments</a> (2025-02-03)<br />
-Assessing correlation between multiple sets of variables stratified by a
-treatment variable. Uses the <code>r.test()</code> function from the
-{psych} package.</p></li>
-<li><p><a href="Correlational_Analysis_in_R.html">Repeated Measures
-ANOVA examples</a> (2025-01-29)<br />
-Two examples of repeated measures ANOVA: (1) Using raw follow-up data as
-the outcome with baseline as a covariate, and (2) Using change scores as
-the outcome. I prefer the first method.</p></li>
-<li><p><a href="compare_gpp_models.html">Comparing self-starting
-Michaelis-Menten Models</a> (2025-01-15)<br />
-How to compare two fitted curves using an interaction in a
-<code>nlme::gnls()</code> model.</p></li>
-<li><p><a href="ggeffects_margin_argument.html">Understanding the
-{ggeffects} predict_response() margin argument</a> (2025-01-10)<br />
-Elaborating on the {ggeffects} vignette, <a href="https://strengejacke.github.io/ggeffects/articles/technical_differencepredictemmeans.html">Difference
-Between Marginalization Methods: The margin Argument</a>.</p></li>
-<li><p><a href="intro_mixed_effect_modeling.html">Intro to Mixed-Effect
-Modeling</a> (2024-12-18)<br />
-Introduces mixed-effect modeling using simulated data and compares the
-results to wrong and older methods.</p></li>
-<li><p><a href="paired_t_test_as_model.html">Paired t-tests as
-mixed-effect model</a> (2024-11-22)<br />
-How to run many paired t-tests as a single mixed-effect model. Uses
-simulated data.</p></li>
-<li><p><a href="tidyLPA.html">tidyLPA notes</a> (Clay Ford and Lauren
-Brideau, 2024-11-01)<br />
-Notes on using the {tidyLPA} package and how it relates to the {mclust}
-package.</p></li>
-<li><p><a href="mixed-effect_ANOVA.html">Mixed-Effect Modeling for
-ANOVA</a> (2024-10-08)<br />
-Demo of implementing ANOVA analysis for multilevel data.</p></li>
-<li><p><a href="using_polycor_hetcor.html">Using polycor::hetcor</a>
-(2024-09-27)<br />
-Demonstration of using the <code>hetcor()</code> function in the
-{polycor} package using simulated data.</p></li>
-<li><p><a href="polychoric_and_polyserial_correlations.html">Polyserial
-and Polychoric Correlation</a> (2024-09-24)<br />
-An intro to polyserial and polychoric correlation using the {polycor}
-package.</p></li>
-<li><p><a href="paired_t_test_as_linear_model.html">Paired t-test as
-linear model</a> (2024-09-05)<br />
-How to perform a paired t-test as a linear model and calculate Cohen’s
-d. Also includes an example of calculating Cohen’s d following multiple
-imputation.</p></li>
-<li><p><a href="analysis_example.html">Marginal effects and plots for
-2-way and 3-way interactions</a> (2024-08-19)<br />
-Demo of Bayesian modeling of 2-way and 3-way interactions (via
-{rstanarm}) using the {emmeans} and {ggeffects} packages. Uses simulated
-data.</p></li>
-<li><p><a href="non_linear_mlm_with_comparisons.html">Post-hoc
-Comparisons with non-linear models</a> (2024-07-15)<br />
-Simple demo of using <code>emmeans()</code> on a non-linear
-predictor.</p></li>
-<li><p><a href="term_plots.html">Demo of Term plots</a>
-(2024-06-25)<br />
-Demonstration of using term plots to detect departures from linearity
-for coefficients. Shows the base R <code>termplot()</code> and
-<code>car::crPlots()</code> functions.</p></li>
-<li><p><a href="assessing_residuals.html">Assessing residuals with
-lineup lots</a> (2024-04-05)<br />
-Using lineup plots to better interpret a QQ plot of model
-residuals.</p></li>
-<li><p><a href="cld.html">Compact Letter Displays</a> (2024-03-24)<br />
-How to create and interpret Compact Letter Displays, though <a href="https://stats.stackexchange.com/questions/275832/interpreting-compact-letter-displays-and-tukey-multiple-comparisons-from-glmm#comment829280_275832">some
-people don’t like them</a>.</p></li>
-<li><p><a href="complex_reshaping_example.html">Complex reshaping
-example</a> (2024-02-15)<br />
-The data set in question had six different sets of variables that needed
-to be reshaped into “long” format. Each set was collected over five
-waves. This shows how to do the reshaping using
-<code>pivot_longer()</code>.</p></li>
-<li><p><a href="Multivariate_Paired_T_Test.html">Multivariate Paired
-Hotelling T Square Test</a> (2024-02-27)<br />
-How to implement a Multivariate Paired Hotelling T Square Test in R and
-SPSS.</p></li>
-<li><p><a href="forced_oneway_anova.html">Forced One-way ANOVA</a>
-(2023-12-01)<br />
-Convert a two-way ANOVA into a one-way ANOVA.</p></li>
-<li><p><a href="multilevel_quantile_regression.html">Multilevel Quantile
-Regression</a> (2023-10-23)<br />
-Example of Multilevel Quantile Regression using {lqmm} and simulated
-data.</p></li>
-<li><p><a href="dw_nc4_files.html">Data wrangling nc4 files</a>
-(2023-10-18)<br />
-Example of extracting values from nc4 object (netCDF) and converting to
-data frame.</p></li>
-<li><p><a href="recoding_example.html">Recoding example</a>
-(2023-10-06)<br />
-Recoding example using a lookup table.</p></li>
-<li><p><a href="example_analysis.html">Multi-level model example using
-simulated data</a> (2023-10-03)<br />
-Example of multi-level model written for someone who was brand new to R.
-Includes demo of {emmeans} and {ggeffects}.</p></li>
-<li><p><a href="multilevel_model_example.html">Multilevel model example
-with 3 nested levels</a> (2023-09-15)<br />
-Example of a multilevel model with 3 levels of nested groups. Uses
-simulated data.</p></li>
-<li><p><a href="consultation_summary_2023-08-28.html">Data wrangling
-consultation</a> (2023-08-28)<br />
-Data wrangling tasks: (1) drop any groups with less than 10 rows, (2)
-drop rows with runs of zeroes greater than or equal to 5.</p></li>
-<li><p><a href="emmeans_examples.html">Examples of emmeans</a>
-(2023-03-24)<br />
-Examples of using emmeans after fitting mixed-effect model, including
-estimating differences in differences.</p></li>
-<li><p><a href="statistical_analysis_approaches.html">Various t-test
-alternatives</a> (2023-02-21)<br />
-Shows alternatives to t-tests, including log-transformed t-tests,
-Wilcoxon, permutation tests, and bootstrap.</p></li>
-<li><p><a href="dummy_versus_effects_coding.html">Dummy coding versus
-effects coding</a> (2023-01-07)<br />
-Demonstrates differences in coefficient interpretations for dummy coding
-versus effects coding. Uses simulated data.</p></li>
-<li><p><a href="Multilevel_model_for_discrete_ordered_data.html">Multilevel model
-for discrete ordered data</a> (2022-11-04)<br />
-Demo of fitting a multilevel model for an ordered categorical outcome.
-Uses the {ordinal} and {emmeans} packages.</p></li>
-<li><p><a href="split_violin_plots.html">Split violin plots</a>
-(2022-10-18)<br />
-Demo of how to create split violin plots using
-<code>introdataviz::geom_split_violin()</code></p></li>
-<li><p><a href="stats_filter_function.html">The stats::filter()
-function</a> (2022-10-12)<br />
-How to use the the base R <code>filter()</code> function to calculate
-moving averages.</p></li>
-<li><p><a href="logistic_regression_interactions.html">Logistic
-regression interactions</a> (2022-09-19)<br />
-How to interpret and visualize 2-level categorical variable interactions
-in a logistic regression model.</p></li>
-<li><p><a href="nested_anova.html">Nested Factorial Experiment</a>
-(2022-09-19)<br />
-Example of a Nested Factorial Experiment from <em>Statistical Models in
-S</em>.</p></li>
-<li><p><a href="adjusted_pvalues_in_R.html">How to adjust p-values using
-R</a> (2022-09-13)<br />
-Quick demo of how to use Holm method to adjust p-values.</p></li>
-<li><p><a href="EFA_with_binary_data.html">EFA with binary data</a>
-(2022-07-28)<br />
-Example of performing exploratory factor analysis with binary data. Uses
-simulated data.</p></li>
-<li><p><a href="three_approaches_to_logistic_regression_in_R.html">Three
-approaches to logistic regression in R</a> (2022-07-18)<br />
-Demo of three ways to fit a logistic regression model in R.</p></li>
-<li><p><a href="mediation_analysis_ttest.html">Comparing a mediation
-analysis and with a t-test</a> (2022-05-25)<br />
-The difference in means from a t-test is the “Total Effect” in mediation
-analysis.</p></li>
-<li><p><a href="rsq_yajun.html">Dangers of only looking at R-squared</a>
-(2022-05-09)<br />
-Demo of how R-squared can be misleadingly high despite a poor-fitting
-model. Includes demonstrations of non-linear models.</p></li>
-<li><p><a href="MA_with_MI.html">Mediation Analysis with Multiple
-Imputation</a> (2022-04-25)<br />
-An attempt at mediation analysis with multiply imputed data using the
-{mice} and {mediation} packages.</p></li>
-<li><p><a href="logistic_regression_prediction_python.html">Plotting
-logistic regression probabilities in Python</a> (2022-04-15)<br />
-How to create an effect plot for a binary predictor using a logistic
-regression model in Python. Uses matplotlib and statsmodels.</p></li>
-<li><p><a href="splines_in_mixed_effect_models.html">Splines in
-mixed-effect models</a> (2022-04-13)<br />
-Demo of fitting splines in mixed-effect models. Also includes demo of
-piecewise splines using the {segmented} package. Uses simulated
-data.</p></li>
-<li><p><a href="large_CIs.html">Explaining large confidence
-intervals</a> (2022-04-05)<br />
-Student wondered why confidence intervals on marginal means were so
-large. Due to small estimated degrees of freedom.</p></li>
-<li><p><a href="nomogram_demo.html">Nomogram demo</a> (2022-03-31)<br />
-This demonstration is a modification of the example available on the
-<code>nomogram()</code> help page from the {rms} package. It
-demonstrates a nomogram for a logistic regression model using simulated
-data.</p></li>
-<li><p><a href="simulate_analysis.html">mixed-effect proportional odds
-mode</a> (2022-02-25)<br />
-An example of a mixed-effect proportional odds mode using simulated data
-and the <code>clmm()</code> function from the {ordinal}
-package.</p></li>
-<li><p><a href="robustness_of_t-test.html">Robustness of t-test</a>
-(2022-01-07)<br />
-Simulation demonstrating robustness of t-test to non-normal
-data.</p></li>
-<li><p><a href="ancova_example.html">ANCOVA example</a>
-(2022-01-07)<br />
-Quick demo of using Analysis of Covariance to compare trends over
-time.</p></li>
-<li><p><a href="finding_peaks.html">Identifying peaks in a line plot</a>
-(2021-06-14)<br />
-One possible method of identifying peaks in a line plot using the
-<code>findpeaks()</code> function in the {pracma} package.</p></li>
-<li><p><a href="bootstrap_example.html">Bootstrapped diff in means</a>
-(2021-12-11)<br />
-Example of implementing a bootstrapped difference in means as an
-alternative to a t-test using the {boot} package in R.</p></li>
-<li><p><a href="power_analysis_simulation.html">Multilevel Model power
-analysis</a> (2021-10-04)<br />
-Power analysis for a multilevel model with a Likert outcome ranging from
-1-5 and a simple binary treatment variable. Presents two approaches: (1)
-manual simulation, and (2) the {simr} package.</p></li>
-<li><p><a href="logistic_regression_example.html">logistic regression
-for a 2x2 table</a> (2021-06-09)<br />
-Example of using logistic regression to get odds ratio, confidence
-interval on OR, and the p-value testing null if OR is 1.</p></li>
-<li><p><a href="plot_derivatives.html">Plotting Derivatives</a>
-(2021-05-17)<br />
-Calculating and plotting first and second derivatives.</p></li>
-<li><p><a href="comparing_slopes.html">Comparing Trends with ANCOVA</a>
-(2021-04-22)<br />
-Comparing slopes via ANCOVA and {emmeans} using simulated data.</p></li>
-<li><p><a href="glmm.html">Demo of Generalized Linear Mixed Model</a>
-(2021-02-12)<br />
-A demonstration of binomial GLMM using simulated data.</p></li>
-<li><p><a href="cramers_v.html">CIs for Cramer’s V</a>
-(2021-01-20)<br />
-Demo of calculating CIs for Cramer’s V for a small sample.</p></li>
-<li><p><a href="normality_is_for_residuals.html">Normality is for
-Residuals</a> (2020-11-02)<br />
-The normality assumption in linear modeling (multiple regression) is on
-the residuals, not the dependent or independent variables.</p></li>
-<li><p><a href="stepwise_simulation.html">Stepwise Model Selection
-performing poorly</a> (2020-09-01)<br />
-Demo of stepwise model selection performing poorly in the presence of
-collinearity. <a href="https://discourse.datamethods.org/t/reference-collection-to-push-back-against-common-statistical-myths/1787#p-4596-stepwise-variable-selection-dont-do-it-7">Stepwise
-selection should be avoided anyway</a>.</p></li>
+<li>CFI = comparative fit index (0.95 or greater)</li>
+<li>RMSEA = root mean square error of approximation (0.06 or lower)</li>
+<li>SRMR = standardized root mean square residual (0.08 or below)</li>
+<li>MFI = McDonald’s Fit Index (0.95 or greater)</li>
+</ul>
+<pre class="r"><code>fitMeasures(configural.fit, fit.indices)</code></pre>
+<pre><code>##  chisq     df    cfi  rmsea   srmr    mfi 
+## 53.380 38.000  0.985  0.054  0.034  0.973</code></pre>
+<p>And the residuals are small. Notice everything is smaller than 2.
+That’s good.</p>
+<pre class="r"><code>residuals(configural.fit, type = &quot;normalized&quot;)</code></pre>
+<pre><code>## $manic
+## $manic$type
+## [1] &quot;normalized&quot;
+## 
+## $manic$cov
+##           Info    Sim  Vocab   Comp PicCmp PicArr BlkDsg ObjAsm
+## Info     0.000                                                 
+## Sim      0.244  0.000                                          
+## Vocab   -0.161 -0.040  0.000                                   
+## Comp     0.008 -0.060  0.053  0.000                            
+## PicComp -0.084  0.685  0.788  1.036  0.000                     
+## PicArr  -0.704 -0.666 -0.294  0.450  0.374  0.000              
+## BlkDsgn -0.363 -0.037  0.234 -0.932 -0.687  0.042  0.000       
+## ObjAsmb -0.328 -0.524  0.085 -0.474 -0.353 -0.110  0.732  0.000
+## 
+## $manic$mean
+##    Info     Sim   Vocab    Comp PicComp  PicArr BlkDsgn ObjAsmb 
+##       0       0       0       0       0       0       0       0 
+## 
+## 
+## $norming
+## $norming$type
+## [1] &quot;normalized&quot;
+## 
+## $norming$cov
+##           Info    Sim  Vocab   Comp PicCmp PicArr BlkDsg ObjAsm
+## Info     0.000                                                 
+## Sim     -0.160  0.000                                          
+## Vocab    0.090  0.039  0.000                                   
+## Comp    -0.268 -0.184  0.343  0.000                            
+## PicComp  0.442  0.596  0.270  0.771  0.000                     
+## PicArr   0.691  0.037 -0.154  0.857  0.476  0.000              
+## BlkDsgn  0.639  0.265 -1.121 -0.523 -0.326 -0.413  0.000       
+## ObjAsmb -0.306  0.093 -0.504 -0.458 -0.369 -0.214  0.617  0.000
+## 
+## $norming$mean
+##    Info     Sim   Vocab    Comp PicComp  PicArr BlkDsgn ObjAsmb 
+##       0       0       0       0       0       0       0       0</code></pre>
+<p>This is a good fitting model for <em>each group</em>.</p>
+</div>
+<div id="weak-invariance" class="section level2">
+<h2>Weak Invariance</h2>
+<p>Now constrain loadings to be equal between groups. Same code as above
+with one additional argument: <code>group.equal = &quot;loadings&quot;</code>.
+Notice in the summary output that all the loadings (listed under Latent
+Variables) are equal in both groups.</p>
+<pre class="r"><code>weak.fit &lt;- cfa(wisc3.model, 
+                sample.cov = combined.cov, 
+                sample.nobs = combined.n, 
+                sample.mean = combined.means, 
+                group.equal = &quot;loadings&quot;) 
+summary(weak.fit)</code></pre>
+<pre><code>## lavaan 0.6-19 ended normally after 94 iterations
+## 
+##   Estimator                                         ML
+##   Optimization method                           NLMINB
+##   Number of model parameters                        50
+##   Number of equality constraints                     6
+## 
+##   Number of observations per group:                   
+##     manic                                           81
+##     norming                                        200
+## 
+## Model Test User Model:
+##                                                       
+##   Test statistic                                65.992
+##   Degrees of freedom                                44
+##   P-value (Chi-square)                           0.018
+##   Test statistic for each group:
+##     manic                                       37.832
+##     norming                                     28.160
+## 
+## Parameter Estimates:
+## 
+##   Standard errors                             Standard
+##   Information                                 Expected
+##   Information saturated (h1) model          Structured
+## 
+## 
+## Group 1 [manic]:
+## 
+## Latent Variables:
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)
+##   VC =~                                               
+##     Info              1.000                           
+##     Sim     (.p2.)    1.105    0.073   15.193    0.000
+##     Vocab   (.p3.)    1.094    0.071   15.298    0.000
+##     Comp    (.p4.)    0.864    0.068   12.720    0.000
+##   VS =~                                               
+##     PicComp           1.000                           
+##     PicArr  (.p6.)    0.888    0.118    7.554    0.000
+##     BlkDsgn (.p7.)    1.217    0.121   10.089    0.000
+##     ObjAsmb (.p8.)    1.174    0.116   10.148    0.000
+## 
+## Covariances:
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)
+##   VC ~~                                               
+##     VS                3.865    0.845    4.571    0.000
+## 
+## Intercepts:
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)
+##    .Info             10.090    0.363   27.815    0.000
+##    .Sim              12.070    0.373   32.397    0.000
+##    .Vocab            10.250    0.358   28.639    0.000
+##    .Comp              9.960    0.306   32.548    0.000
+##    .PicComp          10.900    0.287   37.996    0.000
+##    .PicArr           11.240    0.403   27.915    0.000
+##    .BlkDsgn          10.300    0.373   27.646    0.000
+##    .ObjAsmb          10.440    0.346   30.170    0.000
+## 
+## Variances:
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)
+##    .Info              3.739    0.694    5.386    0.000
+##    .Sim               2.787    0.589    4.733    0.000
+##    .Vocab             2.097    0.494    4.242    0.000
+##    .Comp              2.419    0.464    5.217    0.000
+##    .PicComp           2.831    0.599    4.725    0.000
+##    .PicArr           10.109    1.678    6.024    0.000
+##    .BlkDsgn           5.564    1.079    5.158    0.000
+##    .ObjAsmb           4.417    0.895    4.936    0.000
+##     VC                6.920    1.362    5.081    0.000
+##     VS                3.835    0.877    4.371    0.000
+## 
+## 
+## Group 2 [norming]:
+## 
+## Latent Variables:
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)
+##   VC =~                                               
+##     Info              1.000                           
+##     Sim     (.p2.)    1.105    0.073   15.193    0.000
+##     Vocab   (.p3.)    1.094    0.071   15.298    0.000
+##     Comp    (.p4.)    0.864    0.068   12.720    0.000
+##   VS =~                                               
+##     PicComp           1.000                           
+##     PicArr  (.p6.)    0.888    0.118    7.554    0.000
+##     BlkDsgn (.p7.)    1.217    0.121   10.089    0.000
+##     ObjAsmb (.p8.)    1.174    0.116   10.148    0.000
+## 
+## Covariances:
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)
+##   VC ~~                                               
+##     VS                3.607    0.558    6.461    0.000
+## 
+## Intercepts:
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)
+##    .Info             10.100    0.212   47.646    0.000
+##    .Sim              10.300    0.209   49.298    0.000
+##    .Vocab             9.800    0.209   46.810    0.000
+##    .Comp             10.100    0.209   48.367    0.000
+##    .PicComp          10.100    0.221   45.728    0.000
+##    .PicArr           10.100    0.241   41.952    0.000
+##    .BlkDsgn           9.900    0.239   41.391    0.000
+##    .ObjAsmb          10.200    0.233   43.843    0.000
+## 
+## Variances:
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)
+##    .Info              3.762    0.452    8.329    0.000
+##    .Sim               2.346    0.352    6.660    0.000
+##    .Vocab             2.516    0.362    6.953    0.000
+##    .Comp              4.821    0.532    9.056    0.000
+##    .PicComp           5.568    0.662    8.415    0.000
+##    .PicArr            8.290    0.905    9.155    0.000
+##    .BlkDsgn           5.238    0.705    7.432    0.000
+##    .ObjAsmb           5.055    0.671    7.535    0.000
+##     VC                5.225    0.770    6.783    0.000
+##     VS                4.189    0.777    5.389    0.000</code></pre>
+<p>According to fit measures this is also a good model.</p>
+<pre class="r"><code>fitMeasures(weak.fit, fit.indices)</code></pre>
+<pre><code>##  chisq     df    cfi  rmsea   srmr    mfi 
+## 65.992 44.000  0.979  0.060  0.055  0.962</code></pre>
+<p>And the residuals look good as well, though they are getting
+bigger.</p>
+<pre class="r"><code>residuals(weak.fit, type = &quot;normalized&quot;)</code></pre>
+<pre><code>## $manic
+## $manic$type
+## [1] &quot;normalized&quot;
+## 
+## $manic$cov
+##           Info    Sim  Vocab   Comp PicCmp PicArr BlkDsg ObjAsm
+## Info    -0.971                                                 
+## Sim      0.021  0.550                                          
+## Vocab   -0.958  0.180 -0.248                                   
+## Comp    -0.333  0.541  0.140  0.347                            
+## PicComp -0.949  0.533  0.230  0.807 -0.564                     
+## PicArr   0.022  0.633  0.734  1.581  1.353  0.941              
+## BlkDsgn -0.885  0.122  0.009 -0.862 -1.128  1.245 -0.091       
+## ObjAsmb -0.836 -0.327 -0.118 -0.374 -0.765  1.163  0.697 -0.015
+## 
+## $manic$mean
+##    Info     Sim   Vocab    Comp PicComp  PicArr BlkDsgn ObjAsmb 
+##       0       0       0       0       0       0       0       0 
+## 
+## 
+## $norming
+## $norming$type
+## [1] &quot;normalized&quot;
+## 
+## $norming$cov
+##           Info    Sim  Vocab   Comp PicCmp PicArr BlkDsg ObjAsm
+## Info     0.601                                                 
+## Sim      0.052 -0.433                                          
+## Vocab    0.730 -0.112  0.211                                   
+## Comp    -0.186 -0.829  0.118 -0.422                            
+## PicComp  1.090  0.738  0.729  0.820  0.424                     
+## PicArr   0.339 -0.835 -0.754  0.127  0.081 -0.698              
+## BlkDsgn  1.030  0.068 -0.960 -0.760  0.116 -1.151  0.053       
+## ObjAsmb  0.054 -0.146 -0.389 -0.727  0.027 -0.978  0.659  0.010
+## 
+## $norming$mean
+##    Info     Sim   Vocab    Comp PicComp  PicArr BlkDsgn ObjAsmb 
+##       0       0       0       0       0       0       0       0</code></pre>
+<p>Finally, we could formally compare the models using a Chi-squared
+difference test (aka, Log-likelihood ratio test). We can do this with
+the <code>lavTestLRT()</code> function. The null hypothesis is no
+difference between the models. A small p-value provides evidence against
+this hypothesis and suggests a preference for the more complex model
+(ie, the model with fewer degrees of freedom). Below there is some
+evidence against the weak invariance model (p = 0.049), however AIC and
+BIC metrics suggest otherwise. Lower AIC/BIC values are better and I
+don’t see any reason to reject the weak invariance model.</p>
+<pre class="r"><code>lavTestLRT(configural.fit, weak.fit)</code></pre>
+<pre><code>## 
+## Chi-Squared Difference Test
+## 
+##                Df   AIC   BIC  Chisq Chisq diff    RMSEA Df diff Pr(&gt;Chisq)  
+## configural.fit 38 10583 10765 53.380                                         
+## weak.fit       44 10584 10744 65.992     12.613 0.088568       6    0.04961 *
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</code></pre>
+<p>This is also a good model. It appears the manifest (observed)
+variables for each group are influenced in the same way by the two
+factors.</p>
+</div>
+<div id="strong-invariance" class="section level2">
+<h2>Strong Invariance</h2>
+<p>Now constrain both loadings and intercepts to be equal. Notice the
+<code>group.equal</code> argument now has a vector:
+<code>c(&quot;loadings&quot;, &quot;intercepts&quot;)</code>. Notice in the summary output
+that all the loadings (Latent Variables) and Intercepts are equal in
+both groups.</p>
+<pre class="r"><code>strong.fit &lt;- cfa(wisc3.model, 
+                  sample.cov = combined.cov, 
+                  sample.nobs = combined.n, 
+                  sample.mean = combined.means, 
+                  group.equal = c(&quot;loadings&quot;, &quot;intercepts&quot;)) 
+summary(strong.fit)</code></pre>
+<pre><code>## lavaan 0.6-19 ended normally after 105 iterations
+## 
+##   Estimator                                         ML
+##   Optimization method                           NLMINB
+##   Number of model parameters                        52
+##   Number of equality constraints                    14
+## 
+##   Number of observations per group:                   
+##     manic                                           81
+##     norming                                        200
+## 
+## Model Test User Model:
+##                                                       
+##   Test statistic                               109.088
+##   Degrees of freedom                                50
+##   P-value (Chi-square)                           0.000
+##   Test statistic for each group:
+##     manic                                       70.405
+##     norming                                     38.684
+## 
+## Parameter Estimates:
+## 
+##   Standard errors                             Standard
+##   Information                                 Expected
+##   Information saturated (h1) model          Structured
+## 
+## 
+## Group 1 [manic]:
+## 
+## Latent Variables:
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)
+##   VC =~                                               
+##     Info              1.000                           
+##     Sim     (.p2.)    1.118    0.077   14.588    0.000
+##     Vocab   (.p3.)    1.110    0.073   15.103    0.000
+##     Comp    (.p4.)    0.858    0.070   12.321    0.000
+##   VS =~                                               
+##     PicComp           1.000                           
+##     PicArr  (.p6.)    0.892    0.116    7.722    0.000
+##     BlkDsgn (.p7.)    1.188    0.117   10.188    0.000
+##     ObjAsmb (.p8.)    1.140    0.112   10.222    0.000
+## 
+## Covariances:
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)
+##   VC ~~                                               
+##     VS                3.894    0.847    4.595    0.000
+## 
+## Intercepts:
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)
+##    .Info    (.20.)   10.477    0.321   32.647    0.000
+##    .Sim     (.21.)   11.115    0.351   31.644    0.000
+##    .Vocab   (.22.)   10.338    0.341   30.287    0.000
+##    .Comp    (.23.)   10.295    0.279   36.925    0.000
+##    .PicComp (.24.)   10.749    0.265   40.565    0.000
+##    .PicArr  (.25.)   10.736    0.283   37.941    0.000
+##    .BlkDsgn (.26.)   10.466    0.321   32.646    0.000
+##    .ObjAsmb (.27.)   10.690    0.305   35.032    0.000
+## 
+## Variances:
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)
+##    .Info              4.007    0.743    5.391    0.000
+##    .Sim               4.146    0.800    5.184    0.000
+##    .Vocab             1.936    0.501    3.861    0.000
+##    .Comp              2.595    0.496    5.237    0.000
+##    .PicComp           2.823    0.605    4.667    0.000
+##    .PicArr           10.327    1.716    6.017    0.000
+##    .BlkDsgn           5.677    1.091    5.204    0.000
+##    .ObjAsmb           4.570    0.909    5.025    0.000
+##     VC                6.682    1.333    5.011    0.000
+##     VS                3.923    0.893    4.391    0.000
+## 
+## 
+## Group 2 [norming]:
+## 
+## Latent Variables:
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)
+##   VC =~                                               
+##     Info              1.000                           
+##     Sim     (.p2.)    1.118    0.077   14.588    0.000
+##     Vocab   (.p3.)    1.110    0.073   15.103    0.000
+##     Comp    (.p4.)    0.858    0.070   12.321    0.000
+##   VS =~                                               
+##     PicComp           1.000                           
+##     PicArr  (.p6.)    0.892    0.116    7.722    0.000
+##     BlkDsgn (.p7.)    1.188    0.117   10.188    0.000
+##     ObjAsmb (.p8.)    1.140    0.112   10.222    0.000
+## 
+## Covariances:
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)
+##   VC ~~                                               
+##     VS                3.639    0.562    6.478    0.000
+## 
+## Intercepts:
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)
+##    .Info    (.20.)   10.477    0.321   32.647    0.000
+##    .Sim     (.21.)   11.115    0.351   31.644    0.000
+##    .Vocab   (.22.)   10.338    0.341   30.287    0.000
+##    .Comp    (.23.)   10.295    0.279   36.925    0.000
+##    .PicComp (.24.)   10.749    0.265   40.565    0.000
+##    .PicArr  (.25.)   10.736    0.283   37.941    0.000
+##    .BlkDsgn (.26.)   10.466    0.321   32.646    0.000
+##    .ObjAsmb (.27.)   10.690    0.305   35.032    0.000
+##     VC               -0.525    0.348   -1.510    0.131
+##     VS               -0.529    0.301   -1.759    0.079
+## 
+## Variances:
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)
+##    .Info              3.799    0.455    8.352    0.000
+##    .Sim               2.440    0.364    6.704    0.000
+##    .Vocab             2.489    0.364    6.836    0.000
+##    .Comp              4.896    0.539    9.087    0.000
+##    .PicComp           5.534    0.663    8.346    0.000
+##    .PicArr            8.301    0.911    9.117    0.000
+##    .BlkDsgn           5.293    0.706    7.495    0.000
+##    .ObjAsmb           5.128    0.672    7.628    0.000
+##     VC                5.133    0.766    6.698    0.000
+##     VS                4.321    0.791    5.459    0.000</code></pre>
+<p>The fit measures for this model are not so good.</p>
+<pre class="r"><code>fitMeasures(strong.fit, fit.indices)</code></pre>
+<pre><code>##   chisq      df     cfi   rmsea    srmr     mfi 
+## 109.088  50.000   0.942   0.092   0.064   0.900</code></pre>
+<p>But the residuals are mostly OK. The only point of strain is the
+residual for the “Sim” mean (2.45) in the manic group.</p>
+<pre class="r"><code>residuals(strong.fit, type = &quot;normalized&quot;)</code></pre>
+<pre><code>## $manic
+## $manic$type
+## [1] &quot;normalized&quot;
+## 
+## $manic$cov
+##           Info    Sim  Vocab   Comp PicCmp PicArr BlkDsg ObjAsm
+## Info    -0.991                                                 
+## Sim      0.143 -0.100                                          
+## Vocab   -0.840  0.227 -0.116                                   
+## Comp    -0.118  0.685  0.280  0.402                            
+## PicComp -0.981  0.459  0.135  0.804 -0.646                     
+## PicArr  -0.008  0.578  0.665  1.569  1.276  0.810              
+## BlkDsgn -0.820  0.141  0.017 -0.776 -1.121  1.238 -0.073       
+## ObjAsmb -0.750 -0.289 -0.091 -0.270 -0.735  1.168  0.819  0.005
+## 
+## $manic$mean
+##    Info     Sim   Vocab    Comp PicComp  PicArr BlkDsgn ObjAsmb 
+##  -1.145   2.450  -0.250  -1.064   0.549   1.155  -0.449  -0.723 
+## 
+## 
+## $norming
+## $norming$type
+## [1] &quot;normalized&quot;
+## 
+## $norming$cov
+##           Info    Sim  Vocab   Comp PicCmp PicArr BlkDsg ObjAsm
+## Info     0.658                                                 
+## Sim      0.099 -0.586                                          
+## Vocab    0.751 -0.184  0.158                                   
+## Comp    -0.031 -0.733  0.186 -0.368                            
+## PicComp  1.049  0.626  0.603  0.812  0.328                     
+## PicArr   0.283 -0.961 -0.891  0.102 -0.090 -0.834              
+## BlkDsgn  1.111  0.093 -0.956 -0.645  0.075 -1.214  0.098       
+## ObjAsmb  0.163 -0.091 -0.356 -0.589  0.015 -1.013  0.803  0.085
+## 
+## $norming$mean
+##    Info     Sim   Vocab    Comp PicComp  PicArr BlkDsgn ObjAsmb 
+##   0.679  -1.113   0.216   1.251  -0.531  -0.705   0.261   0.488</code></pre>
+<p>The Chi-squared difference test suggests we reject the strong
+invariance model for the weak invariance model based on the small
+p-value.</p>
+<pre class="r"><code>lavTestLRT(weak.fit, strong.fit)</code></pre>
+<pre><code>## 
+## Chi-Squared Difference Test
+## 
+##            Df   AIC   BIC   Chisq Chisq diff   RMSEA Df diff Pr(&gt;Chisq)    
+## weak.fit   44 10584 10744  65.992                                          
+## strong.fit 50 10615 10753 109.088     43.096 0.20977       6  1.117e-07 ***
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</code></pre>
+<p>For sake of completeness, let’s move to the next model.</p>
+</div>
+<div id="strict-invariance" class="section level2">
+<h2>Strict Invariance</h2>
+<p>Now constrain loadings, intercepts and variances to be equal. Notice
+the <code>group.equal</code> argument has the vector:
+<code>c(&quot;loadings&quot;, &quot;intercepts&quot;, &quot;residuals&quot;)</code>. Notice in the
+summary output that all the loadings (Latent Variables), intercepts and
+variances are equal in both groups.</p>
+<pre class="r"><code>strict.fit &lt;- cfa(wisc3.model, 
+                  sample.cov = combined.cov, 
+                  sample.nobs = combined.n, 
+                  sample.mean = combined.means, 
+                  group.equal = c(&quot;loadings&quot;, &quot;intercepts&quot;, &quot;residuals&quot;))
+summary(strict.fit)</code></pre>
+<pre><code>## lavaan 0.6-19 ended normally after 71 iterations
+## 
+##   Estimator                                         ML
+##   Optimization method                           NLMINB
+##   Number of model parameters                        52
+##   Number of equality constraints                    22
+## 
+##   Number of observations per group:                   
+##     manic                                           81
+##     norming                                        200
+## 
+## Model Test User Model:
+##                                                       
+##   Test statistic                               129.979
+##   Degrees of freedom                                58
+##   P-value (Chi-square)                           0.000
+##   Test statistic for each group:
+##     manic                                       82.922
+##     norming                                     47.057
+## 
+## Parameter Estimates:
+## 
+##   Standard errors                             Standard
+##   Information                                 Expected
+##   Information saturated (h1) model          Structured
+## 
+## 
+## Group 1 [manic]:
+## 
+## Latent Variables:
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)
+##   VC =~                                               
+##     Info              1.000                           
+##     Sim     (.p2.)    1.138    0.077   14.745    0.000
+##     Vocab   (.p3.)    1.110    0.074   15.020    0.000
+##     Comp    (.p4.)    0.845    0.071   11.825    0.000
+##   VS =~                                               
+##     PicComp           1.000                           
+##     PicArr  (.p6.)    0.893    0.115    7.789    0.000
+##     BlkDsgn (.p7.)    1.178    0.115   10.236    0.000
+##     ObjAsmb (.p8.)    1.128    0.110   10.218    0.000
+## 
+## Covariances:
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)
+##   VC ~~                                               
+##     VS                3.884    0.874    4.446    0.000
+## 
+## Intercepts:
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)
+##    .Info    (.20.)   10.547    0.320   32.961    0.000
+##    .Sim     (.21.)   11.322    0.353   32.048    0.000
+##    .Vocab   (.22.)   10.429    0.343   30.439    0.000
+##    .Comp    (.23.)   10.440    0.281   37.214    0.000
+##    .PicComp (.24.)   10.701    0.281   38.123    0.000
+##    .PicArr  (.25.)   10.759    0.286   37.626    0.000
+##    .BlkDsgn (.26.)   10.451    0.323   32.319    0.000
+##    .ObjAsmb (.27.)   10.687    0.310   34.483    0.000
+## 
+## Variances:
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)
+##    .Info    (.10.)    3.842    0.392    9.807    0.000
+##    .Sim     (.11.)    2.850    0.348    8.196    0.000
+##    .Vocab   (.12.)    2.355    0.307    7.666    0.000
+##    .Comp    (.13.)    4.252    0.403   10.551    0.000
+##    .PicComp (.14.)    4.740    0.502    9.433    0.000
+##    .PicArr  (.15.)    8.905    0.821   10.844    0.000
+##    .BlkDsgn (.16.)    5.300    0.600    8.836    0.000
+##    .ObjAsmb (.17.)    4.908    0.553    8.867    0.000
+##     VC                6.642    1.322    5.026    0.000
+##     VS                4.106    0.981    4.184    0.000
+## 
+## 
+## Group 2 [norming]:
+## 
+## Latent Variables:
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)
+##   VC =~                                               
+##     Info              1.000                           
+##     Sim     (.p2.)    1.138    0.077   14.745    0.000
+##     Vocab   (.p3.)    1.110    0.074   15.020    0.000
+##     Comp    (.p4.)    0.845    0.071   11.825    0.000
+##   VS =~                                               
+##     PicComp           1.000                           
+##     PicArr  (.p6.)    0.893    0.115    7.789    0.000
+##     BlkDsgn (.p7.)    1.178    0.115   10.236    0.000
+##     ObjAsmb (.p8.)    1.128    0.110   10.218    0.000
+## 
+## Covariances:
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)
+##   VC ~~                                               
+##     VS                3.659    0.561    6.518    0.000
+## 
+## Intercepts:
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)
+##    .Info    (.20.)   10.547    0.320   32.961    0.000
+##    .Sim     (.21.)   11.322    0.353   32.048    0.000
+##    .Vocab   (.22.)   10.429    0.343   30.439    0.000
+##    .Comp    (.23.)   10.440    0.281   37.214    0.000
+##    .PicComp (.24.)   10.701    0.281   38.123    0.000
+##    .PicArr  (.25.)   10.759    0.286   37.626    0.000
+##    .BlkDsgn (.26.)   10.451    0.323   32.319    0.000
+##    .ObjAsmb (.27.)   10.687    0.310   34.483    0.000
+##     VC               -0.632    0.348   -1.818    0.069
+##     VS               -0.520    0.308   -1.686    0.092
+## 
+## Variances:
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)
+##    .Info    (.10.)    3.842    0.392    9.807    0.000
+##    .Sim     (.11.)    2.850    0.348    8.196    0.000
+##    .Vocab   (.12.)    2.355    0.307    7.666    0.000
+##    .Comp    (.13.)    4.252    0.403   10.551    0.000
+##    .PicComp (.14.)    4.740    0.502    9.433    0.000
+##    .PicArr  (.15.)    8.905    0.821   10.844    0.000
+##    .BlkDsgn (.16.)    5.300    0.600    8.836    0.000
+##    .ObjAsmb (.17.)    4.908    0.553    8.867    0.000
+##     VC                5.105    0.762    6.695    0.000
+##     VS                4.453    0.794    5.607    0.000</code></pre>
+<p>Fit measures are not too good. The CFI is too low and RMSEA is too
+high.</p>
+<pre class="r"><code>fitmeasures(strict.fit, fit.indices)</code></pre>
+<pre><code>##   chisq      df     cfi   rmsea    srmr     mfi 
+## 129.979  58.000   0.930   0.094   0.077   0.880</code></pre>
+<p>However, the residuals look good for the most part. The only point of
+strain is the residual for the “PicCmp” variance (-2.829) in the manic
+group.</p>
+<pre class="r"><code>residuals(strict.fit, type = &quot;normalized&quot;)</code></pre>
+<pre><code>## $manic
+## $manic$type
+## [1] &quot;normalized&quot;
+## 
+## $manic$cov
+##           Info    Sim  Vocab   Comp PicCmp PicArr BlkDsg ObjAsm
+## Info    -0.850                                                 
+## Sim      0.082  0.439                                          
+## Vocab   -0.806  0.163 -0.353                                   
+## Comp    -0.012  0.702  0.388 -0.771                            
+## PicComp -0.970  0.398  0.145  0.870 -2.829                     
+## PicArr  -0.005  0.537  0.667  1.605  1.138  1.334              
+## BlkDsgn -0.778  0.116  0.059 -0.683 -1.298  1.136  0.051       
+## ObjAsmb -0.698 -0.306 -0.038 -0.168 -0.901  1.070  0.715 -0.298
+## 
+## $manic$mean
+##    Info     Sim   Vocab    Comp PicComp  PicArr BlkDsgn ObjAsmb 
+##  -1.352   1.918  -0.510  -1.524   0.725   1.102  -0.409  -0.713 
+## 
+## 
+## $norming
+## $norming$type
+## [1] &quot;normalized&quot;
+## 
+## $norming$cov
+##           Info    Sim  Vocab   Comp PicCmp PicArr BlkDsg ObjAsm
+## Info     0.643                                                 
+## Sim      0.004 -1.312                                          
+## Vocab    0.790 -0.291  0.344                                   
+## Comp     0.098 -0.711  0.327  0.562                            
+## PicComp  1.022  0.493  0.572  0.855  0.978                     
+## PicArr   0.253 -1.090 -0.926  0.135 -0.245 -1.496              
+## BlkDsgn  1.126 -0.001 -0.938 -0.553 -0.057 -1.341  0.023       
+## ObjAsmb  0.191 -0.169 -0.325 -0.486 -0.101 -1.125  0.735  0.245
+## 
+## $norming$mean
+##    Info     Sim   Vocab    Comp PicComp  PicArr BlkDsgn ObjAsmb 
+##   0.846  -1.481   0.343   0.950  -0.358  -0.837   0.255   0.429</code></pre>
+<p>The Chi-squared test favors the strong invariance model based on AIC
+and p-value, but the BIC actually points to the strict fit.</p>
+<pre class="r"><code>lavTestLRT(strong.fit, strict.fit)</code></pre>
+<pre><code>## 
+## Chi-Squared Difference Test
+## 
+##            Df   AIC   BIC  Chisq Chisq diff   RMSEA Df diff Pr(&gt;Chisq)   
+## strong.fit 50 10615 10753 109.09                                         
+## strict.fit 58 10620 10729 129.98      20.89 0.10709       8   0.007444 **
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</code></pre>
+</div>
+<div id="partial-strict-invariance" class="section level2">
+<h2>Partial Strict Invariance</h2>
+<p>If we want, we can remove constraints for certain parameters using
+the <code>group.partial</code> argument. For example, to allow the
+variance for PicCmp to be estimated separately between the groups, add
+the line <code>group.partial = &quot;PicComp ~~ PicComp&quot;</code>. In the
+summary, notice under Variances that “PicComp” gets a separate estimate
+in each group.</p>
+<pre class="r"><code>strict.fit2 &lt;- cfa(wisc3.model, 
+                   sample.cov = combined.cov, 
+                   sample.nobs = combined.n,
+                   sample.mean = combined.means, 
+                   group.equal = c(&quot;loadings&quot;, &quot;intercepts&quot;, &quot;residuals&quot;),
+                   group.partial = &quot;PicComp ~~ PicComp&quot;)
+summary(strict.fit2)</code></pre>
+<pre><code>## lavaan 0.6-19 ended normally after 76 iterations
+## 
+##   Estimator                                         ML
+##   Optimization method                           NLMINB
+##   Number of model parameters                        52
+##   Number of equality constraints                    21
+## 
+##   Number of observations per group:                   
+##     manic                                           81
+##     norming                                        200
+## 
+## Model Test User Model:
+##                                                       
+##   Test statistic                               122.221
+##   Degrees of freedom                                57
+##   P-value (Chi-square)                           0.000
+##   Test statistic for each group:
+##     manic                                       76.147
+##     norming                                     46.074
+## 
+## Parameter Estimates:
+## 
+##   Standard errors                             Standard
+##   Information                                 Expected
+##   Information saturated (h1) model          Structured
+## 
+## 
+## Group 1 [manic]:
+## 
+## Latent Variables:
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)
+##   VC =~                                               
+##     Info              1.000                           
+##     Sim     (.p2.)    1.139    0.077   14.736    0.000
+##     Vocab   (.p3.)    1.111    0.074   15.008    0.000
+##     Comp    (.p4.)    0.846    0.072   11.828    0.000
+##   VS =~                                               
+##     PicComp           1.000                           
+##     PicArr  (.p6.)    0.916    0.117    7.840    0.000
+##     BlkDsgn (.p7.)    1.191    0.117   10.192    0.000
+##     ObjAsmb (.p8.)    1.146    0.112   10.212    0.000
+## 
+## Covariances:
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)
+##   VC ~~                                               
+##     VS                3.865    0.844    4.577    0.000
+## 
+## Intercepts:
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)
+##    .Info    (.20.)   10.547    0.320   32.974    0.000
+##    .Sim     (.21.)   11.323    0.353   32.044    0.000
+##    .Vocab   (.22.)   10.429    0.343   30.438    0.000
+##    .Comp    (.23.)   10.440    0.281   37.199    0.000
+##    .PicComp (.24.)   10.753    0.266   40.499    0.000
+##    .PicArr  (.25.)   10.779    0.286   37.675    0.000
+##    .BlkDsgn (.26.)   10.470    0.321   32.652    0.000
+##    .ObjAsmb (.27.)   10.707    0.308   34.737    0.000
+## 
+## Variances:
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)
+##    .Info    (.10.)    3.850    0.392    9.818    0.000
+##    .Sim     (.11.)    2.848    0.347    8.198    0.000
+##    .Vocab   (.12.)    2.355    0.307    7.672    0.000
+##    .Comp    (.13.)    4.247    0.403   10.549    0.000
+##    .PicComp           2.829    0.604    4.681    0.000
+##    .PicArr  (.15.)    8.863    0.819   10.828    0.000
+##    .BlkDsgn (.16.)    5.400    0.604    8.946    0.000
+##    .ObjAsmb (.17.)    4.944    0.555    8.912    0.000
+##     VC                6.633    1.320    5.023    0.000
+##     VS                3.949    0.896    4.405    0.000
+## 
+## 
+## Group 2 [norming]:
+## 
+## Latent Variables:
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)
+##   VC =~                                               
+##     Info              1.000                           
+##     Sim     (.p2.)    1.139    0.077   14.736    0.000
+##     Vocab   (.p3.)    1.111    0.074   15.008    0.000
+##     Comp    (.p4.)    0.846    0.072   11.828    0.000
+##   VS =~                                               
+##     PicComp           1.000                           
+##     PicArr  (.p6.)    0.916    0.117    7.840    0.000
+##     BlkDsgn (.p7.)    1.191    0.117   10.192    0.000
+##     ObjAsmb (.p8.)    1.146    0.112   10.212    0.000
+## 
+## Covariances:
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)
+##   VC ~~                                               
+##     VS                3.594    0.557    6.457    0.000
+## 
+## Intercepts:
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)
+##    .Info    (.20.)   10.547    0.320   32.974    0.000
+##    .Sim     (.21.)   11.323    0.353   32.044    0.000
+##    .Vocab   (.22.)   10.429    0.343   30.438    0.000
+##    .Comp    (.23.)   10.440    0.281   37.199    0.000
+##    .PicComp (.24.)   10.753    0.266   40.499    0.000
+##    .PicArr  (.25.)   10.779    0.286   37.675    0.000
+##    .BlkDsgn (.26.)   10.470    0.321   32.652    0.000
+##    .ObjAsmb (.27.)   10.707    0.308   34.737    0.000
+##     VC               -0.632    0.347   -1.819    0.069
+##     VS               -0.537    0.301   -1.786    0.074
+## 
+## Variances:
+##                    Estimate  Std.Err  z-value  P(&gt;|z|)
+##    .Info    (.10.)    3.850    0.392    9.818    0.000
+##    .Sim     (.11.)    2.848    0.347    8.198    0.000
+##    .Vocab   (.12.)    2.355    0.307    7.672    0.000
+##    .Comp    (.13.)    4.247    0.403   10.549    0.000
+##    .PicComp           5.545    0.663    8.358    0.000
+##    .PicArr  (.15.)    8.863    0.819   10.828    0.000
+##    .BlkDsgn (.16.)    5.400    0.604    8.946    0.000
+##    .ObjAsmb (.17.)    4.944    0.555    8.912    0.000
+##     VC                5.097    0.762    6.690    0.000
+##     VS                4.280    0.783    5.466    0.000</code></pre>
+<p>The fit measures are not great…</p>
+<pre class="r"><code>fitmeasures(strict.fit2, fit.indices)</code></pre>
+<pre><code>##   chisq      df     cfi   rmsea    srmr     mfi 
+## 122.221  57.000   0.936   0.090   0.071   0.890</code></pre>
+<p>But the residuals look pretty good.</p>
+<pre class="r"><code>residuals(strict.fit2, type = &quot;normalized&quot;)</code></pre>
+<pre><code>## $manic
+## $manic$type
+## [1] &quot;normalized&quot;
+## 
+## $manic$cov
+##           Info    Sim  Vocab   Comp PicCmp PicArr BlkDsg ObjAsm
+## Info    -0.849                                                 
+## Sim      0.085  0.439                                          
+## Vocab   -0.803  0.161 -0.354                                   
+## Comp    -0.012  0.698  0.384 -0.772                            
+## PicComp -0.949  0.414  0.163  0.883 -0.680                     
+## PicArr  -0.056  0.486  0.613  1.559  1.180  1.337              
+## BlkDsgn -0.800  0.091  0.033 -0.708 -1.162  1.145  0.050       
+## ObjAsmb -0.741 -0.351 -0.085 -0.211 -0.789  1.065  0.765 -0.296
+## 
+## $manic$mean
+##    Info     Sim   Vocab    Comp PicComp  PicArr BlkDsgn ObjAsmb 
+##  -1.352   1.917  -0.511  -1.526   0.533   1.058  -0.461  -0.773 
+## 
+## 
+## $norming
+## $norming$type
+## [1] &quot;normalized&quot;
+## 
+## $norming$cov
+##           Info    Sim  Vocab   Comp PicCmp PicArr BlkDsg ObjAsm
+## Info     0.643                                                 
+## Sim      0.010 -1.311                                          
+## Vocab    0.795 -0.291  0.345                                   
+## Comp     0.099 -0.716  0.323  0.563                            
+## PicComp  1.107  0.590  0.664  0.927  0.357                     
+## PicArr   0.223 -1.132 -0.965  0.102 -0.172 -1.491              
+## BlkDsgn  1.163  0.038 -0.899 -0.525  0.118 -1.319  0.031       
+## ObjAsmb  0.202 -0.162 -0.316 -0.483  0.043 -1.132  0.818  0.254
+## 
+## $norming$mean
+##    Info     Sim   Vocab    Comp PicComp  PicArr BlkDsgn ObjAsmb 
+##   0.846  -1.480   0.343   0.951  -0.515  -0.803   0.288   0.465</code></pre>
+<p>Obviously one has to wonder if we would arrive at the same
+conclusions using a new sample of data. We don’t want to build a model
+that’s too specific to our sample. That’s would be overfitting.</p>
+</div>
+<div id="references" class="section level2">
+<h2>References</h2>
+<ul>
+<li>Beaujean, A. A. (2014) <em>Latent Variable Modeling Using R</em>.
+Routledge.</li>
+<li>Beaujean, A. A., Freeman, M. J., Youngstrom, E., &amp; Carlson, G.
+(2012). The structure of cognitive abilities in youths with manic
+symptoms: a factorial invariance study. Assessment, 19(4), 462–471. <a href="https://doi.org/10.1177/1073191111399037" class="uri">https://doi.org/10.1177/1073191111399037</a></li>
+<li>R Core Team (2025). <em>R: A Language and Environment for
+Statistical Computing</em>. R Foundation for Statistical Computing,
+Vienna, Austria. <a href="https://www.R-project.org/" class="uri">https://www.R-project.org/</a>.</li>
+<li>Rosseel, Y. (2012). lavaan: An R Package for Structural Equation
+Modeling. <em>Journal of Statistical Software</em>, 48(2), 1-36. <a href="https://doi.org/10.18637/jss.v048.i02" class="uri">https://doi.org/10.18637/jss.v048.i02</a></li>
 </ul>
 </div>
 
