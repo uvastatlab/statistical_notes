@@ -1,0 +1,62 @@
+---
+title: "VarCov Matrices for Random Effects"
+author: "Clay Ford"
+format: 
+  html:
+    embed-resources: true
+    
+---
+
+In this note I show how to suppress estimation of covariance random effects when estimating random effects for a categorical predictor.
+
+<hr>
+
+The following data come from Ch 5 of _Linear Mixed Models_ by West et al.
+
+An experiment that examined nucleotide activation in 5 different rats. Each
+rat was subjected to two different treatments (basal vs carbachol) and then
+nucleotide activation was measured in 3 different brain regions. Therefore
+each rat has 6 different measures.
+
+```{r message=FALSE}
+library(lme4)
+library(afex)
+library(nlme)
+ratbrain <- read.csv("ratbrain.csv")
+head(ratbrain, n = 8)
+interaction.plot(x.factor = ratbrain$region,
+                 trace.factor = ratbrain$treatment, 
+                 response = ratbrain$activate)
+```
+
+Model `activate` as a function of region and treatment (and their interaction) with random effects on the intercept and region. Notice the singular fit message, This is due to the ill-conditioned random-effects covariance matrix, which suggests the model may be over-parameterized. Specifically we may not need to model covariance between the levels of the region random effects. The summary shows them all as -1 or 1.
+
+```{r}
+m1 <- lmer(activate ~ region * treatment + (region | animal), 
+            data = ratbrain)
+summary(m1, corr = F)
+```
+
+How can we fit a model without the covariance between random effects? Unfortunately, we can't do that in {lme4}. However we can do so with the {afex} or {nlme} packages.
+
+The {afex} package provides the `lmer_alt()` function that allows the use of two bars between region and animal (`region || animal`) to suppress estimation of random effect covariances (i.e., they are held constant at 0). However we still get warning about singularities. 
+
+```{r}
+m2 <- lmer_alt(activate ~ region * treatment + (region || animal), 
+            data = ratbrain)
+summary(m2, corr = F)
+```
+
+In the {nlme} package we can use the `pdDiag()` to specify we want to fit a _diagonal_ random effects matrix with covariances fixed at 0. Notice this requires a named list object, where the name is the grouping factor. This converges with no warning messages. This may be due to `lme()` using a different optimizer. It uses "BFGS" while `lmer()` uses "nloptwrap". 
+
+```{r}
+library(nlme)
+m3 <- lme(activate ~ region * treatment, 
+          random = list(animal = pdDiag(~ region)), 
+          data = ratbrain)
+summary(m3)
+```
+
+### References
+
+West, B., Welch, K., & Galecki, A. (2015) *Linear Mixed Models*. Chapman and Hall/CRC.

@@ -11,6 +11,8 @@ knitr::opts_chunk$set(echo = TRUE)
 
 Unless otherwise noted, reports are by Clay Ford. 
 
+### 2025
+
 - [Measurement Invariance Demo](measurement_invariance_demo.html) (2025-06-26)     
 Example from Chapter 4 of _Latent Variable Modeling Using R_ (Beaujean 2014), Latent Variable Models with Multiple Groups. The example examines if the structure of the WISC-III scale is the same in children with and without manic symptoms. [Book code](https://blogs.baylor.edu/rlatentvariable/sample-page/r-syntax/#Chapter_4_Latent_Variable_Models_with_Multiple_Groups)
 
@@ -39,6 +41,8 @@ How to compare two fitted curves using an interaction in a `nlme::gnls()` model.
 
 - [Understanding the {ggeffects} predict_response() margin argument](ggeffects_margin_argument.html) (2025-01-10)    
 Elaborating on the {ggeffects} vignette, [Difference Between Marginalization Methods: The margin Argument](https://strengejacke.github.io/ggeffects/articles/technical_differencepredictemmeans.html).
+
+### 2024
 
 - [Intro to Mixed-Effect Modeling](intro_mixed_effect_modeling.html) (2024-12-18)     
 Introduces mixed-effect modeling using simulated data and compares the results to wrong and older methods. 
@@ -87,6 +91,12 @@ The data set in question had six different sets of variables that needed to be r
 - [Multivariate Paired Hotelling T Square Test](Multivariate_Paired_T_Test.html) (2024-02-27)      
 How to implement a Multivariate Paired Hotelling T Square Test in R and SPSS.
 
+- [VarCov Matrices for Random Effects](VarCov_matrices_for_random_effects.html) (2024-02-14)      
+In this note I show how to suppress estimation of covariance random effects when estimating random effects for a categorical predictor.
+
+
+## 2023
+
 - [Forced One-way ANOVA](forced_oneway_anova.html) (2023-12-01)    
 Convert a two-way ANOVA into a one-way ANOVA.
 
@@ -119,6 +129,9 @@ Shows alternatives to t-tests, including log-transformed t-tests, Wilcoxon, perm
 
 - [Dummy coding versus effects coding](dummy_versus_effects_coding.html) (2023-01-07)     
 Demonstrates differences in coefficient interpretations for dummy coding versus effects coding. Uses simulated data.  
+
+
+### 2022
 
 - [Multilevel model for discrete ordered data](Multilevel_model_for_discrete_ordered_data.html) (2022-11-04)     
 Demo of fitting a multilevel model for an ordered categorical outcome. Uses the {ordinal} and {emmeans} packages.
@@ -182,6 +195,9 @@ Simulation demonstrating robustness of t-test to non-normal data.
 - [ANCOVA example](ancova_example.html) (2022-01-07)     
 Quick demo of using Analysis of Covariance to compare trends over time.
 
+### 2021
+
+
 - [Identifying peaks in a line plot](finding_peaks.html) (2021-06-14)     
 One possible method of identifying peaks in a line plot using the `findpeaks()` function in the {pracma} package.
 
@@ -209,6 +225,8 @@ A demonstration of binomial GLMM using simulated data.
 
 - [CIs for Cramer's V](cramers_v.html) (2021-01-20)    
 Demo of calculating CIs for Cramer's V for a small sample.
+
+### 2020
 
 - [Normality is for Residuals](normality_is_for_residuals.html) (2020-11-02)     
 The normality assumption in linear modeling (multiple regression) is on the residuals, not the dependent or independent variables.
