@@ -1,0 +1,177 @@
+---
+title: "Simulate beta regression model"
+author: "Clay Ford"
+date: "2022-05-22"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+Simulation I wrote for a Darden professor and his collaborator. They were asking about an experiment involving people drawing wealth distributions. They’re wondering if people have different “ideal” wealth distributions for various groups. They’re measuring a wealth distribution with something called a gini coefficient that measures inequality. It ranges in value from 0 to 1. In order to help them plan their analysis I offered to simulate data for them from a beta distribution, show them how to analyze the data using beta regression, and then how to repeatedly simulate and analyze the data to estimate power given a sample size.
+
+## Simulate data
+
+Simulate data for people’s attitudes towards economic inequality (ie, gini coefficient) affected by group structures NG (no groups), WM (well mixed), and SG (segregated)
+
+**Assumed effect size**
+
+Let's say we want our study to detect mean gini differences between groups if expected means are as follows. (I just made these up. These should be based on subject matter expertise and what you consider "important" differences to detect.)
+
+NG = 0.5
+SG = 0.55
+WM = 0.6
+
+Without going into too much details, beta regression involves a link function, the default of which (at least in R) is the logit (or log-odds). Therefore we need to rescale our effect sizes to the logit scale. The `qlogis()` function is the logit function.
+
+```{r}
+NG <- qlogis(0.5)  # NG = 0
+SG <- qlogis(0.55) - qlogis(0.5)  # SG - NG = 0.2
+WM <- qlogis(0.6) - qlogis(0.5)  # WM - NG = 0.4
+```
+
+We'll use these as the "True" values in generating data.
+
+```{r}
+# set sample size
+N <- 300
+
+# create group variable; 100 each
+grp <- rep(c("NG", "SG", "WM"), each = N/3)
+
+# generate age; uniform random values from age 18 - 75
+age <- round(runif(N, 18, 75))
+
+# parameters (or beta coefficients); include 0.005 for age effect; (assuming older people will score higher gini. I have no idea...)
+B <- c(NG, SG, WM, 0.005)
+B
+```
+
+precision parameter; smaller means less precise (more variance) this is another assumption! I tried to be somewhat conservative. 
+
+```{r}
+phi <- 15
+```
+
+
+Now generate mean; `plogis()` is the inverse logit function; it returns values on [0,1]
+
+```{r}
+mu <- plogis(B[1] + 
+               B[2]*(grp == "SG") + 
+               B[3]*(grp == "WM") +
+               B[4]*age)
+```
+
+
+Finally generate gini using rbeta() function:
+
+- mu * phi is the first "shape parameter"
+-(1 - mu) * phi is the second "shape parameter"
+
+```{r}
+gini <- rbeta(N, mu * phi, (1 - mu) * phi)
+```
+
+
+Now combine into data frame:
+
+```{r}
+d <- data.frame(gini, grp, age)
+```
+
+
+Histogram of simulated gini
+
+```{r}
+hist(d$gini)
+```
+
+Mean Gini by groups:
+
+```{r}
+aggregate(gini ~ grp, data = d, mean)
+```
+
+## Analyze Data 
+
+Now work backwards and try to recover "True" values of 0.5, 0.55, and 0.6.
+
+Use the betreg package to fit a beta regression model. Only need to install once, but load using `library()` every time you start R.
+
+```{r}
+# install.packages("betareg")
+library(betareg)
+```
+
+
+Now fit model. This is the same model we used to generate the data so it's the "correct model".
+
+```{r}
+m <- betareg(gini ~ grp + age, data = d)
+summary(m)
+```
+
+
+The coefficients should be somewhat close to the True values defined in B and phi above.
+
+The coefficient tests for grpSG and grpWM tell us whether or not we "detected" the difference in expected gini scores for the groups.
+
+The coefficients are on the logit scale and are hard to interpret. I suggest using the emmeans package to get estimate differences on the gini scale with corrected p-values for multiple comparisons. Below we find expected difference in mean gini scores between groups holding age at the mean.
+
+
+```{r message=FALSE}
+# install.packages("emmeans")
+library(emmeans)
+emm1 <- emmeans(m, specs = "grp", at = list(age = mean(d$age))) 
+contrast(emm1, "pairwise")
+```
+
+
+## Estimate power
+
+Is 300 a large enough sample (assuming we have 100 in each group) to detect difference between NG and SG & NG and WM?
+
+We can simulate data and fit a model many times. Below we...
+
+1. generate data
+2. fit model
+3. check if both p-values are less than 0.05
+
+Create a function that does this that allows us to change sample size. Funtion returns TRUE if both "grpSG" and "grpWM" coefficients are less than 0.05.
+
+```{r}
+f <- function(N){
+  grp <- rep(c("NG", "SG", "WM"), each = N/3)
+  age <- round(runif(N, 18, 75))
+  B <- c(0, 0.2, 0.4, 0.005)
+  phi <- 15
+  mu <- plogis(B[1] + 
+                 B[2]*(grp == "SG") + 
+                 B[3]*(grp == "WM") +
+                 B[4]*age)
+  gini <- rbeta(N, mu * phi, (1 - mu) * phi)
+  d <- data.frame(gini, grp, age)
+  m <- betareg(gini ~ grp + age, data = d)
+  p <- coef(summary(m))$mean[c("grpSG", "grpWM"), "Pr(>|z|)"]
+  all(p < 0.05)
+}
+```
+
+Now replicate function 1000 times. Use `pbreplicate()` function to get a progress bar on the simulation
+
+```{r}
+# install.packages("pbapply")
+library(pbapply)
+res <- pbreplicate(n = 1000, expr = f(N = 300))
+```
+ 
+
+estimated power (mean of T/F is proportion of TRUEs)
+
+```{r}
+mean(res)
+```
+

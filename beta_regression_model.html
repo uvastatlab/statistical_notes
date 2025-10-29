@@ -9,9 +9,11 @@
 <meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
 
 
+<meta name="author" content="Clay Ford" />
 
+<meta name="date" content="2022-05-22" />
 
-<title>UVA StatLab Statistical Notes</title>
+<title>Simulate beta regression model</title>
 
 <script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
 // be compatible with the behavior of Pandoc < 2.8).
@@ -348,310 +350,176 @@ display: none;
 
 
 
-<h1 class="title toc-ignore">UVA StatLab Statistical Notes</h1>
+<h1 class="title toc-ignore">Simulate beta regression model</h1>
+<h4 class="author">Clay Ford</h4>
+<h4 class="date">2022-05-22</h4>
 
 </div>
 
 
-<div id="reports-generated-for-various-consultations-for-the-uva-statlab." class="section level3">
-<h3>Reports generated for various consultations for the UVA
-StatLab.</h3>
-<p>Unless otherwise noted, reports are by Clay Ford.</p>
-</div>
-<div id="section" class="section level3">
-<h3>2025</h3>
+<p>Simulation I wrote for a Darden professor and his collaborator. They
+were asking about an experiment involving people drawing wealth
+distributions. They’re wondering if people have different “ideal” wealth
+distributions for various groups. They’re measuring a wealth
+distribution with something called a gini coefficient that measures
+inequality. It ranges in value from 0 to 1. In order to help them plan
+their analysis I offered to simulate data for them from a beta
+distribution, show them how to analyze the data using beta regression,
+and then how to repeatedly simulate and analyze the data to estimate
+power given a sample size.</p>
+<div id="simulate-data" class="section level2">
+<h2>Simulate data</h2>
+<p>Simulate data for people’s attitudes towards economic inequality (ie,
+gini coefficient) affected by group structures NG (no groups), WM (well
+mixed), and SG (segregated)</p>
+<p><strong>Assumed effect size</strong></p>
+<p>Let’s say we want our study to detect mean gini differences between
+groups if expected means are as follows. (I just made these up. These
+should be based on subject matter expertise and what you consider
+“important” differences to detect.)</p>
+<p>NG = 0.5 SG = 0.55 WM = 0.6</p>
+<p>Without going into too much details, beta regression involves a link
+function, the default of which (at least in R) is the logit (or
+log-odds). Therefore we need to rescale our effect sizes to the logit
+scale. The <code>qlogis()</code> function is the logit function.</p>
+<pre class="r"><code>NG &lt;- qlogis(0.5)  # NG = 0
+SG &lt;- qlogis(0.55) - qlogis(0.5)  # SG - NG = 0.2
+WM &lt;- qlogis(0.6) - qlogis(0.5)  # WM - NG = 0.4</code></pre>
+<p>We’ll use these as the “True” values in generating data.</p>
+<pre class="r"><code># set sample size
+N &lt;- 300
+
+# create group variable; 100 each
+grp &lt;- rep(c(&quot;NG&quot;, &quot;SG&quot;, &quot;WM&quot;), each = N/3)
+
+# generate age; uniform random values from age 18 - 75
+age &lt;- round(runif(N, 18, 75))
+
+# parameters (or beta coefficients); include 0.005 for age effect; (assuming older people will score higher gini. I have no idea...)
+B &lt;- c(NG, SG, WM, 0.005)
+B</code></pre>
+<pre><code>## [1] 0.0000000 0.2006707 0.4054651 0.0050000</code></pre>
+<p>precision parameter; smaller means less precise (more variance) this
+is another assumption! I tried to be somewhat conservative.</p>
+<pre class="r"><code>phi &lt;- 15</code></pre>
+<p>Now generate mean; <code>plogis()</code> is the inverse logit
+function; it returns values on [0,1]</p>
+<pre class="r"><code>mu &lt;- plogis(B[1] + 
+               B[2]*(grp == &quot;SG&quot;) + 
+               B[3]*(grp == &quot;WM&quot;) +
+               B[4]*age)</code></pre>
+<p>Finally generate gini using rbeta() function:</p>
 <ul>
-<li><p><a href="measurement_invariance_demo.html">Measurement Invariance
-Demo</a> (2025-06-26)<br />
-Example from Chapter 4 of <em>Latent Variable Modeling Using R</em>
-(Beaujean 2014), Latent Variable Models with Multiple Groups. The
-example examines if the structure of the WISC-III scale is the same in
-children with and without manic symptoms. <a href="https://blogs.baylor.edu/rlatentvariable/sample-page/r-syntax/#Chapter_4_Latent_Variable_Models_with_Multiple_Groups">Book
-code</a></p></li>
-<li><p><a href="extract_data_upset_plot.html">Extracting data from UpSet
-Plot</a> (2025-04-10)<br />
-How to extract specific interactions from a data frame identified in an
-UpSet plot.</p></li>
-<li><p><a href="tukey_hsd_demo.html">Demo of Tukey HSD</a>
-(2025-04-02)<br />
-Quick demo of how Tukey HSD corrects p-values for multiple
-comparisons.</p></li>
-<li><p><a href="glm_families_and_links.html">Understanding the log link
-in a Poisson model</a> (2025-03-21)<br />
-Why we use the log link with Poisson models (i.e.,
-<code>family = poisson(link = &quot;log&quot;)</code>).</p></li>
-<li><p><a href="investigating_multicollinearity.html">Investigating
-Multicolinearity</a> (2025-03-19)<br />
-Investigating multicolinearity and challenging idea of inspecting
-pairwise correlations before fitting a model and dropping highly
-correlated predictors.</p></li>
-<li><p><a href="Correlational_Analysis_in_R.html">analyze correlational
-data with treatments</a> (2025-02-03)<br />
-Assessing correlation between multiple sets of variables stratified by a
-treatment variable. Uses the <code>r.test()</code> function from the
-{psych} package.</p></li>
-<li><p><a href="Correlational_Analysis_in_R.html">Repeated Measures
-ANOVA examples</a> (2025-01-29)<br />
-Two examples of repeated measures ANOVA: (1) Using raw follow-up data as
-the outcome with baseline as a covariate, and (2) Using change scores as
-the outcome. I prefer the first method.</p></li>
-<li><p><a href="compare_gpp_models.html">Comparing self-starting
-Michaelis-Menten Models</a> (2025-01-15)<br />
-How to compare two fitted curves using an interaction in a
-<code>nlme::gnls()</code> model.</p></li>
-<li><p><a href="ggeffects_margin_argument.html">Understanding the
-{ggeffects} predict_response() margin argument</a> (2025-01-10)<br />
-Elaborating on the {ggeffects} vignette, <a href="https://strengejacke.github.io/ggeffects/articles/technical_differencepredictemmeans.html">Difference
-Between Marginalization Methods: The margin Argument</a>.</p></li>
+<li>mu * phi is the first “shape parameter” -(1 - mu) * phi is the
+second “shape parameter”</li>
 </ul>
+<pre class="r"><code>gini &lt;- rbeta(N, mu * phi, (1 - mu) * phi)</code></pre>
+<p>Now combine into data frame:</p>
+<pre class="r"><code>d &lt;- data.frame(gini, grp, age)</code></pre>
+<p>Histogram of simulated gini</p>
+<pre class="r"><code>hist(d$gini)</code></pre>
+<p><img role="img" src="data:image/png;base64,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" width="672" /></p>
+<p>Mean Gini by groups:</p>
+<pre class="r"><code>aggregate(gini ~ grp, data = d, mean)</code></pre>
+<pre><code>##   grp      gini
+## 1  NG 0.5475086
+## 2  SG 0.6072185
+## 3  WM 0.6449326</code></pre>
 </div>
-<div id="section-1" class="section level3">
-<h3>2024</h3>
-<ul>
-<li><p><a href="intro_mixed_effect_modeling.html">Intro to Mixed-Effect
-Modeling</a> (2024-12-18)<br />
-Introduces mixed-effect modeling using simulated data and compares the
-results to wrong and older methods.</p></li>
-<li><p><a href="paired_t_test_as_model.html">Paired t-tests as
-mixed-effect model</a> (2024-11-22)<br />
-How to run many paired t-tests as a single mixed-effect model. Uses
-simulated data.</p></li>
-<li><p><a href="tidyLPA.html">tidyLPA notes</a> (2024-11-01, Clay Ford
-and Lauren Brideau)<br />
-Notes on using the {tidyLPA} package and how it relates to the {mclust}
-package.</p></li>
-<li><p><a href="mixed-effect_ANOVA.html">Mixed-Effect Modeling for
-ANOVA</a> (2024-10-08)<br />
-Demo of implementing ANOVA analysis for multilevel data.</p></li>
-<li><p><a href="using_polycor_hetcor.html">Using polycor::hetcor</a>
-(2024-09-27)<br />
-Demonstration of using the <code>hetcor()</code> function in the
-{polycor} package using simulated data.</p></li>
-<li><p><a href="polychoric_and_polyserial_correlations.html">Polyserial
-and Polychoric Correlation</a> (2024-09-24)<br />
-An intro to polyserial and polychoric correlation using the {polycor}
-package.</p></li>
-<li><p><a href="paired_t_test_as_linear_model.html">Paired t-test as
-linear model</a> (2024-09-05)<br />
-How to perform a paired t-test as a linear model and calculate Cohen’s
-d. Also includes an example of calculating Cohen’s d following multiple
-imputation.</p></li>
-<li><p><a href="analysis_example.html">Marginal effects and plots for
-2-way and 3-way interactions</a> (2024-08-19)<br />
-Demo of Bayesian modeling of 2-way and 3-way interactions (via
-{rstanarm}) using the {emmeans} and {ggeffects} packages. Uses simulated
-data.</p></li>
-<li><p><a href="non_linear_mlm_with_comparisons.html">Post-hoc
-Comparisons with non-linear models</a> (2024-07-15)<br />
-Simple demo of using <code>emmeans()</code> on a non-linear
-predictor.</p></li>
-<li><p><a href="term_plots.html">Demo of Term plots</a>
-(2024-06-25)<br />
-Demonstration of using term plots to detect departures from linearity
-for coefficients. Shows the base R <code>termplot()</code> and
-<code>car::crPlots()</code> functions.</p></li>
-<li><p><a href="assessing_residuals.html">Assessing residuals with
-lineup lots</a> (2024-04-05)<br />
-Using lineup plots to better interpret a QQ plot of model
-residuals.</p></li>
-<li><p><a href="cld.html">Compact Letter Displays</a> (2024-03-24)<br />
-How to create and interpret Compact Letter Displays, though <a href="https://stats.stackexchange.com/questions/275832/interpreting-compact-letter-displays-and-tukey-multiple-comparisons-from-glmm#comment829280_275832">some
-people don’t like them</a>.</p></li>
-<li><p><a href="complex_reshaping_example.html">Complex reshaping
-example</a> (2024-02-15)<br />
-The data set in question had six different sets of variables that needed
-to be reshaped into “long” format. Each set was collected over five
-waves. This shows how to do the reshaping using
-<code>pivot_longer()</code>.</p></li>
-<li><p><a href="Multivariate_Paired_T_Test.html">Multivariate Paired
-Hotelling T Square Test</a> (2024-02-27)<br />
-How to implement a Multivariate Paired Hotelling T Square Test in R and
-SPSS.</p></li>
-<li><p><a href="VarCov_matrices_for_random_effects.html">VarCov Matrices
-for Random Effects</a> (2024-02-14)<br />
-In this note I show how to suppress estimation of covariance random
-effects when estimating random effects for a categorical
-predictor.</p></li>
-</ul>
+<div id="analyze-data" class="section level2">
+<h2>Analyze Data</h2>
+<p>Now work backwards and try to recover “True” values of 0.5, 0.55, and
+0.6.</p>
+<p>Use the betreg package to fit a beta regression model. Only need to
+install once, but load using <code>library()</code> every time you start
+R.</p>
+<pre class="r"><code># install.packages(&quot;betareg&quot;)
+library(betareg)</code></pre>
+<p>Now fit model. This is the same model we used to generate the data so
+it’s the “correct model”.</p>
+<pre class="r"><code>m &lt;- betareg(gini ~ grp + age, data = d)
+summary(m)</code></pre>
+<pre><code>## 
+## Call:
+## betareg(formula = gini ~ grp + age, data = d)
+## 
+## Quantile residuals:
+##     Min      1Q  Median      3Q     Max 
+## -2.8146 -0.6814 -0.0196  0.5911  2.7203 
+## 
+## Coefficients (mean model with logit link):
+##              Estimate Std. Error z value Pr(&gt;|z|)    
+## (Intercept) -0.034140   0.100251  -0.341  0.73344    
+## grpSG        0.231685   0.071960   3.220  0.00128 ** 
+## grpWM        0.396368   0.072708   5.452 4.99e-08 ***
+## age          0.004988   0.001883   2.650  0.00806 ** 
+## 
+## Phi coefficients (precision model with identity link):
+##       Estimate Std. Error z value Pr(&gt;|z|)    
+## (phi)   14.812      1.172   12.63   &lt;2e-16 ***
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1 
+## 
+## Type of estimator: ML (maximum likelihood)
+## Log-likelihood: 206.4 on 5 Df
+## Pseudo R-squared: 0.1134
+## Number of iterations: 10 (BFGS) + 2 (Fisher scoring)</code></pre>
+<p>The coefficients should be somewhat close to the True values defined
+in B and phi above.</p>
+<p>The coefficient tests for grpSG and grpWM tell us whether or not we
+“detected” the difference in expected gini scores for the groups.</p>
+<p>The coefficients are on the logit scale and are hard to interpret. I
+suggest using the emmeans package to get estimate differences on the
+gini scale with corrected p-values for multiple comparisons. Below we
+find expected difference in mean gini scores between groups holding age
+at the mean.</p>
+<pre class="r"><code># install.packages(&quot;emmeans&quot;)
+library(emmeans)
+emm1 &lt;- emmeans(m, specs = &quot;grp&quot;, at = list(age = mean(d$age))) 
+contrast(emm1, &quot;pairwise&quot;)</code></pre>
+<pre><code>##  contrast estimate     SE  df z.ratio p.value
+##  NG - SG   -0.0564 0.0175 Inf  -3.227  0.0036
+##  NG - WM   -0.0950 0.0173 Inf  -5.486  &lt;.0001
+##  SG - WM   -0.0385 0.0171 Inf  -2.253  0.0627
+## 
+## P value adjustment: tukey method for comparing a family of 3 estimates</code></pre>
 </div>
-<div id="section-2" class="section level2">
-<h2>2023</h2>
-<ul>
-<li><p><a href="forced_oneway_anova.html">Forced One-way ANOVA</a>
-(2023-12-01)<br />
-Convert a two-way ANOVA into a one-way ANOVA.</p></li>
-<li><p><a href="multilevel_quantile_regression.html">Multilevel Quantile
-Regression</a> (2023-10-23)<br />
-Example of Multilevel Quantile Regression using {lqmm} and simulated
-data.</p></li>
-<li><p><a href="dw_nc4_files.html">Data wrangling nc4 files</a>
-(2023-10-18)<br />
-Example of extracting values from nc4 object (netCDF) and converting to
-data frame.</p></li>
-<li><p><a href="recoding_example.html">Recoding example</a>
-(2023-10-06)<br />
-Recoding example using a lookup table.</p></li>
-<li><p><a href="example_analysis.html">Multi-level model example using
-simulated data</a> (2023-10-03)<br />
-Example of multi-level model written for someone who was brand new to R.
-Includes demo of {emmeans} and {ggeffects}.</p></li>
-<li><p><a href="multilevel_model_example.html">Multilevel model example
-with 3 nested levels</a> (2023-09-15)<br />
-Example of a multilevel model with 3 levels of nested groups. Uses
-simulated data.</p></li>
-<li><p><a href="consultation_summary_2023-08-28.html">Data wrangling
-consultation</a> (2023-08-28)<br />
-Data wrangling tasks: (1) drop any groups with less than 10 rows, (2)
-drop rows with runs of zeroes greater than or equal to 5.</p></li>
-<li><p><a href="emmeans_examples.html">Examples of emmeans</a>
-(2023-03-24)<br />
-Examples of using emmeans after fitting mixed-effect model, including
-estimating differences in differences.</p></li>
-<li><p><a href="statistical_analysis_approaches.html">Various t-test
-alternatives</a> (2023-02-21)<br />
-Shows alternatives to t-tests, including log-transformed t-tests,
-Wilcoxon, permutation tests, and bootstrap.</p></li>
-<li><p><a href="dummy_versus_effects_coding.html">Dummy coding versus
-effects coding</a> (2023-01-07)<br />
-Demonstrates differences in coefficient interpretations for dummy coding
-versus effects coding. Uses simulated data.</p></li>
-</ul>
-<div id="section-3" class="section level3">
-<h3>2022</h3>
-<ul>
-<li><p><a href="Multilevel_model_for_discrete_ordered_data.html">Multilevel model
-for discrete ordered data</a> (2022-11-04)<br />
-Demo of fitting a multilevel model for an ordered categorical outcome.
-Uses the {ordinal} and {emmeans} packages.</p></li>
-<li><p><a href="split_violin_plots.html">Split violin plots</a>
-(2022-10-18)<br />
-Demo of how to create split violin plots using
-<code>introdataviz::geom_split_violin()</code></p></li>
-<li><p><a href="stats_filter_function.html">The stats::filter()
-function</a> (2022-10-12)<br />
-How to use the the base R <code>filter()</code> function to calculate
-moving averages.</p></li>
-<li><p><a href="normality.html">The normality assumption</a>
-(2022-09-21, Jacob Goldstein-Greenwood)<br />
-For t-tests and linear models, we’re not worried about the overall
-normality of the dependent variable. We care about normality around
-conditional means.</p></li>
-<li><p><a href="logistic_regression_interactions.html">Logistic
-regression interactions</a> (2022-09-19)<br />
-How to interpret and visualize 2-level categorical variable interactions
-in a logistic regression model.</p></li>
-<li><p><a href="nested_anova.html">Nested Factorial Experiment</a>
-(2022-09-19)<br />
-Example of a Nested Factorial Experiment from <em>Statistical Models in
-S</em>.</p></li>
-<li><p><a href="adjusted_pvalues_in_R.html">How to adjust p-values using
-R</a> (2022-09-13)<br />
-Quick demo of how to use Holm method to adjust p-values.</p></li>
-<li><p><a href="EFA_with_binary_data.html">EFA with binary data</a>
-(2022-07-28)<br />
-Example of performing exploratory factor analysis with binary data. Uses
-simulated data.</p></li>
-<li><p><a href="three_approaches_to_logistic_regression_in_R.html">Three
-approaches to logistic regression in R</a> (2022-07-18)<br />
-Demo of three ways to fit a logistic regression model in R.</p></li>
-<li><p><a href="mediation_analysis_ttest.html">Comparing a mediation
-analysis and with a t-test</a> (2022-05-25)<br />
-The difference in means from a t-test is the “Total Effect” in mediation
-analysis.</p></li>
-<li><p><a href="rsq_yajun.html">Dangers of only looking at R-squared</a>
-(2022-05-09)<br />
-Demo of how R-squared can be misleadingly high despite a poor-fitting
-model. Includes demonstrations of non-linear models.</p></li>
-<li><p><a href="beta_regression_model.html">Simulate beta regression
-model</a> (2022-05-22)<br />
-Simulate data from a beta distribution, show how to analyze the data
-using beta regression, and then how to repeatedly simulate and analyze
-the data to estimate power given a sample size.</p></li>
-<li><p><a href="MA_with_MI.html">Mediation Analysis with Multiple
-Imputation</a> (2022-04-25)<br />
-An attempt at mediation analysis with multiply imputed data using the
-{mice} and {mediation} packages.</p></li>
-<li><p><a href="logistic_regression_prediction_python.html">Plotting
-logistic regression probabilities in Python</a> (2022-04-15)<br />
-How to create an effect plot for a binary predictor using a logistic
-regression model in Python. Uses matplotlib and statsmodels.</p></li>
-<li><p><a href="splines_in_mixed_effect_models.html">Splines in
-mixed-effect models</a> (2022-04-13)<br />
-Demo of fitting splines in mixed-effect models. Also includes demo of
-piecewise splines using the {segmented} package. Uses simulated
-data.</p></li>
-<li><p><a href="large_CIs.html">Explaining large confidence
-intervals</a> (2022-04-05)<br />
-Student wondered why confidence intervals on marginal means were so
-large. Due to small estimated degrees of freedom.</p></li>
-<li><p><a href="nomogram_demo.html">Nomogram demo</a> (2022-03-31)<br />
-This demonstration is a modification of the example available on the
-<code>nomogram()</code> help page from the {rms} package. It
-demonstrates a nomogram for a logistic regression model using simulated
-data.</p></li>
-<li><p><a href="simulate_analysis.html">mixed-effect proportional odds
-mode</a> (2022-02-25)<br />
-An example of a mixed-effect proportional odds mode using simulated data
-and the <code>clmm()</code> function from the {ordinal}
-package.</p></li>
-<li><p><a href="robustness_of_t-test.html">Robustness of t-test</a>
-(2022-01-07)<br />
-Simulation demonstrating robustness of t-test to non-normal
-data.</p></li>
-<li><p><a href="ancova_example.html">ANCOVA example</a>
-(2022-01-07)<br />
-Quick demo of using Analysis of Covariance to compare trends over
-time.</p></li>
-</ul>
-</div>
-<div id="section-4" class="section level3">
-<h3>2021</h3>
-<ul>
-<li><p><a href="finding_peaks.html">Identifying peaks in a line plot</a>
-(2021-06-14)<br />
-One possible method of identifying peaks in a line plot using the
-<code>findpeaks()</code> function in the {pracma} package.</p></li>
-<li><p><a href="bootstrap_example.html">Bootstrapped diff in means</a>
-(2021-12-11)<br />
-Example of implementing a bootstrapped difference in means as an
-alternative to a t-test using the {boot} package in R.</p></li>
-<li><p><a href="power_analysis_simulation.html">Multilevel Model power
-analysis</a> (2021-10-04)<br />
-Power analysis for a multilevel model with a Likert outcome ranging from
-1-5 and a simple binary treatment variable. Presents two approaches: (1)
-manual simulation, and (2) the {simr} package.</p></li>
-<li><p><a href="logistic_regression_example.html">logistic regression
-for a 2x2 table</a> (2021-06-09)<br />
-Example of using logistic regression to get odds ratio, confidence
-interval on OR, and the p-value testing null if OR is 1.</p></li>
-<li><p><a href="plot_derivatives.html">Plotting Derivatives</a>
-(2021-05-17)<br />
-Calculating and plotting first and second derivatives.</p></li>
-<li><p><a href="comparing_slopes.html">Comparing Trends with ANCOVA</a>
-(2021-04-22)<br />
-Comparing slopes via ANCOVA and {emmeans} using simulated data.</p></li>
-<li><p><a href="glmm.html">Demo of Generalized Linear Mixed Model</a>
-(2021-02-12)<br />
-A demonstration of binomial GLMM using simulated data.</p></li>
-<li><p><a href="cramers_v.html">CIs for Cramer’s V</a>
-(2021-01-20)<br />
-Demo of calculating CIs for Cramer’s V for a small sample.</p></li>
-</ul>
-</div>
-<div id="section-5" class="section level3">
-<h3>2020</h3>
-<ul>
-<li><p><a href="normality_is_for_residuals.html">Normality is for
-Residuals</a> (2020-11-02)<br />
-The normality assumption in linear modeling (multiple regression) is on
-the residuals, not the dependent or independent variables.</p></li>
-<li><p><a href="stepwise_simulation.html">Stepwise Model Selection
-performing poorly</a> (2020-09-01)<br />
-Demo of stepwise model selection performing poorly in the presence of
-collinearity. <a href="https://discourse.datamethods.org/t/reference-collection-to-push-back-against-common-statistical-myths/1787#p-4596-stepwise-variable-selection-dont-do-it-7">Stepwise
-selection should be avoided anyway</a>.</p></li>
-</ul>
-</div>
+<div id="estimate-power" class="section level2">
+<h2>Estimate power</h2>
+<p>Is 300 a large enough sample (assuming we have 100 in each group) to
+detect difference between NG and SG &amp; NG and WM?</p>
+<p>We can simulate data and fit a model many times. Below we…</p>
+<ol style="list-style-type: decimal">
+<li>generate data</li>
+<li>fit model</li>
+<li>check if both p-values are less than 0.05</li>
+</ol>
+<p>Create a function that does this that allows us to change sample
+size. Funtion returns TRUE if both “grpSG” and “grpWM” coefficients are
+less than 0.05.</p>
+<pre class="r"><code>f &lt;- function(N){
+  grp &lt;- rep(c(&quot;NG&quot;, &quot;SG&quot;, &quot;WM&quot;), each = N/3)
+  age &lt;- round(runif(N, 18, 75))
+  B &lt;- c(0, 0.2, 0.4, 0.005)
+  phi &lt;- 15
+  mu &lt;- plogis(B[1] + 
+                 B[2]*(grp == &quot;SG&quot;) + 
+                 B[3]*(grp == &quot;WM&quot;) +
+                 B[4]*age)
+  gini &lt;- rbeta(N, mu * phi, (1 - mu) * phi)
+  d &lt;- data.frame(gini, grp, age)
+  m &lt;- betareg(gini ~ grp + age, data = d)
+  p &lt;- coef(summary(m))$mean[c(&quot;grpSG&quot;, &quot;grpWM&quot;), &quot;Pr(&gt;|z|)&quot;]
+  all(p &lt; 0.05)
+}</code></pre>
+<p>Now replicate function 1000 times. Use <code>pbreplicate()</code>
+function to get a progress bar on the simulation</p>
+<pre class="r"><code># install.packages(&quot;pbapply&quot;)
+library(pbapply)
+res &lt;- pbreplicate(n = 1000, expr = f(N = 300))</code></pre>
+<p>estimated power (mean of T/F is proportion of TRUEs)</p>
+<pre class="r"><code>mean(res)</code></pre>
+<pre><code>## [1] 0.805</code></pre>
 </div>
 
 

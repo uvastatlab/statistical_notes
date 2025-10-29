@@ -168,6 +168,9 @@ The difference in means from a t-test is the “Total Effect” in mediation ana
 - [Dangers of only looking at R-squared](rsq_yajun.html) (2022-05-09)      
 Demo of how R-squared can be misleadingly high despite a poor-fitting model. Includes demonstrations of non-linear models. 
 
+- [Simulate beta regression model](beta_regression_model.html) (2022-05-22)      
+Simulate data from a beta distribution, show how to analyze the data using beta regression, and then how to repeatedly simulate and analyze the data to estimate power given a sample size.
+
 - [Mediation Analysis with Multiple Imputation](MA_with_MI.html) (2022-04-25)      
 An attempt at mediation analysis with multiply imputed data using the {mice} and {mediation} packages. 
 
