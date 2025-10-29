@@ -66,10 +66,10 @@ mu <- plogis(B[1] +
 ```
 
 
-Finally generate gini using rbeta() function:
+Finally generate gini using `rbeta()` function:
 
 - mu * phi is the first "shape parameter"
--(1 - mu) * phi is the second "shape parameter"
+- (1 - mu) * phi is the second "shape parameter"
 
 ```{r}
 gini <- rbeta(N, mu * phi, (1 - mu) * phi)
