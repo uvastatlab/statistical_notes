@@ -1,0 +1,75 @@
+---
+title: "Johnson-Neyman intervals"
+author: "Clay Ford"
+date: "2025-11-17"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Simulate data
+
+Simulate data with a non-significant 3-way interaction but with one significant 2-way interaction.
+
+```{r}
+set.seed(123)
+n <- 600
+x1 <- rnorm(n)
+x2 <- rnorm(n)
+x3 <- rnorm(n)
+y <- 0.2 + 0.3*x1 + 0.04*x2 + -0.2*x3 + 
+  -0.03*x1*x2 + -0.04*x2*x3 + -0.1*x1*x3 +
+  0.01*x1*x2*x3 + rnorm(n, sd = 0.5)
+m <- lm(y ~ x1*x2*x3)
+summary(m)
+```
+
+We have one significant interaction between x1 and x3.
+
+## Probe the significant two-way interaction 
+
+The modelbased package provides the `estimate_slopes()` function to calculate Johnson-Neyman intervals. 
+
+First let's plot the predicted values of y for x1 at different values of x3 using the `estimate_means()` function.
+
+```{r}
+library(modelbased)
+pr <- estimate_means(m, c("x1", "x3"))
+plot(pr)
+```
+
+At which x3 values is the association between x1 and y statistically significant? Let's investigate using the `estimate_slopes()` function.
+
+```{r}
+estimate_slopes(m, "x1", by = "x3")
+```
+
+It appears that when x3 < 2.67, the relationship between x1 and y is significant.
+
+We can save the result and call `summary()` to get Johnson-Neyman intervals. 
+
+ 
+
+```{r}
+# length determines how many equally spaced values are generated.
+slopes <- estimate_slopes(m, "x1", by = "x3", length = 100)
+summary(slopes)
+```
+
+We can visualize this using the `plot()` method for this object.
+
+```{r}
+plot(slopes)
+```
+
+This example is based on this [modelbased vignette](https://easystats.github.io/modelbased/articles/introduction_comparisons_3.html).
+
+
+## References
+
+- R Core Team (2025). _R: A Language and Environment for Statistical Computing_. R Foundation for Statistical Computing, Vienna, Austria. <https://www.R-project.org/>.
+- Makowski, D., Ben-Shachar, M. S., Wiernik, B. M., Patil, I., Thériault, R., & Lüdecke, D. (2025). modelbased: An R package to make the most out of your statistical models through marginal means, marginal effects, and model predictions. Journal of Open Source Software, 10(109), 7969. <https://doi.org/10.21105/joss.07969>
+
+

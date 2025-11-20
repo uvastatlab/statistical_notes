@@ -13,6 +13,9 @@ Unless otherwise noted, reports are by Clay Ford.
 
 ### 2025
 
+- [Johnson-Neyman intervals](Johnson-Neyman_intervals.html) (2025-11-17)     
+Demonstration of how to calculate Johnson-Neyman intervals using the {modelbased} package. Uses simulated data. Based on an example in [one of the {modelbased} vignettes](https://easystats.github.io/modelbased/articles/introduction_comparisons_3.html).
+
 - [Measurement Invariance Demo](measurement_invariance_demo.html) (2025-06-26)     
 Example from Chapter 4 of _Latent Variable Modeling Using R_ (Beaujean 2014), Latent Variable Models with Multiple Groups. The example examines if the structure of the WISC-III scale is the same in children with and without manic symptoms. [Book code](https://blogs.baylor.edu/rlatentvariable/sample-page/r-syntax/#Chapter_4_Latent_Variable_Models_with_Multiple_Groups)
 
