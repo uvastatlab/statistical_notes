@@ -11,6 +11,29 @@ knitr::opts_chunk$set(echo = TRUE)
 
 Unless otherwise noted, reports are by Clay Ford. 
 
+### 2026
+
+- [Example of multiple imputation for multilevel data](multiple_imputation_example.html) (2026-05-14)   
+Demonstrates how to implement multiple imputation for multilevel data using the {mice} package with one level 1 variable (varies within group) and one level 2 variable (constant within group).
+
+- [Calculating ICC in the presence of singular fit warnings](icc.html) (2026-05-05)    
+Demonstrates and visualizes ICC and shows one way of estimating ICC when confronted with singular model fits. Uses the {performance} and {rstanarm} packages.
+
+- [Investigating residualization](investigating_residualization.html) (2026-04-10)   
+Investigation of residualization (aka, partialling-out procedure) in the context of SEM. In this simulated example, it seems to make more sense to work with raw data instead of using residuals as model predictors. 
+
+- [Notes on the rvif package](rvif_package.html) (2026-04-03)    
+The {rvif} (Redefined Variance Inflation Factor) package focuses on determining whether or not the degree of approximate multicollinearity in a multiple linear regression model is of concern. From [the R Journal article](https://journal.r-project.org/articles/RJ-2025-040/): "...the measures traditionally applied to detect multicollinearity may conclude that multicollinearity exists even if it does not lead to the negative effects mentioned above, when, in fact, the best solution in this case may be not to treat the multicollinearity (see [O'Brien (2007)](https://doi.org/10.1007/s11135-006-9018-6)." See also this StatLab article, [Adressing Multicollinearity](https://library.virginia.edu/data/articles/addressing-multicollinearity).
+
+
+- [Multinomial regression with LHS matrix](multinomial_regression_example_with_matrix_lhs.html) (2026-04-03)  
+Example of multinomial regression with a left hand side (LHS) matrix. Potentially useful for modeling a categorical outcome where subjects allocate percentages to categories (summing to 100) instead of selecting a category.
+
+
+- [Using interactions to address research questions](interaction_questions.html) (2026-02-03)    
+Report generated for client and junior associate demonstrating how we can use interactions and post-hoc comparisons via the {emmeans} package to address specific research questions. 
+
+
 ### 2025
 
 - [Johnson-Neyman intervals](Johnson-Neyman_intervals.html) (2025-11-17)     

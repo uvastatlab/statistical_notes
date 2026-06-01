@@ -1,0 +1,139 @@
+---
+title: "ICC"
+author: "Clay Ford"
+date: "2026-05-04"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+ICC is the proportion of random variation between subjects.
+
+## Simulate data with high ICC
+
+Let's simulate multilevel data with high ICC.
+
+```{r}
+ID <- 1:13
+obs <- 1:4
+d <- expand.grid(obs = obs, ID = ID)
+head(d)
+```
+
+Now simulate intercepts. Notice the higher standard deviation for `z`, the between ID variance, versus `e`, the within ID variance.
+
+```{r}
+set.seed(1)
+z <- rnorm(13, sd = 2)
+e <- rnorm(nrow(d), sd = 0.5)
+d$y <- (3 + z[d$ID]) + e
+```
+
+Fit multilevel model and calculate ICC
+
+```{r message=FALSE}
+library(lme4)
+library(performance)
+m <- lmer(y ~ 1 + (1 | ID), data = d)
+icc(m)
+```
+
+Notice in the summary output (under random effects) that the Variance/Std Dev is much bigger for ID (between) than Residual (within).
+
+```{r}
+summary(m)
+```
+
+The ICC is simply the proportion of total variance due to ID.
+
+```{r}
+2.8171 /(2.8171  + 0.2109)
+```
+
+Plot of data. Notice much of the variability is due to differences between IDs.
+
+```{r}
+library(ggplot2)
+ggplot(d) +
+  aes(y = y, x = ID, color = factor(ID)) +
+  geom_jitter(width = 0.05, height = 0)
+```
+
+
+
+## Simulate data with low ICC
+
+Let's simulate multilevel data with low ICC. Notice the lower standard deviation for `z`, the between ID variance, versus `e`, the within ID variance.
+
+```{r}
+set.seed(3)
+z <- rnorm(13, sd = 0.05)
+e <- rnorm(nrow(d), sd = 2)
+d$y <- (3 + z[d$ID]) + e
+```
+
+Fit multilevel model and calculate ICC
+
+```{r message=FALSE}
+m <- lmer(y ~ 1 + (1 | ID), data = d)
+icc(m)
+```
+
+Notice in the summary output (under random effects) that the Variance/Std Dev is much smaller for ID (between) than Residual (within).
+
+```{r}
+summary(m)
+```
+
+Plot the data. Notice much of the variability is within IDs, not between.
+
+```{r}
+ggplot(d) +
+  aes(y = y, x = ID, color = factor(ID)) +
+  geom_jitter(width = 0.05, height = 0)
+```
+
+
+## Simulate data with NA ICC
+
+By playing with the seed we can generate data where the estimated ICC is NA.
+
+```{r}
+set.seed(998)
+z <- rnorm(13, sd = 0.05)
+e <- rnorm(nrow(d), sd = 2)
+d$y <- (3 + z[d$ID]) + e
+```
+
+This results in a singular fit.
+
+```{r}
+m <- lmer(y ~ 1 + (1 | ID), data = d)
+icc(m)
+```
+
+The summary output tells us the estimated variance between groups is about 0.
+
+```{r}
+summary(m)
+```
+
+We can see this when we look at the group-specific estimated intercepts. They're all the same (no variance). This is what is causing the warning. 
+
+```{r}
+coef(m)
+```
+
+The warning message suggests one way to alleviate the issue is to "impose priors on your random effects parameters". This involves Bayesian modeling. The rstanarm package makes this easy to implement. It fits a Bayesian model with default priors on the random effect parameters.
+
+```{r message=FALSE}
+library(rstanarm)
+m2 <- stan_lmer(y ~ 1 + (1 | ID), data = d, refresh = 0)
+icc(m2)
+```
+
+Now we're getting an estimate for ICC but at the cost of a more complex analysis involving prior distributions. (Though I suppose you could quietly use this method just to get an estimate for the ICC.) 
+
+It's worth asking yourself if you even need to report ICC. Accounting for multilevel data in your analysis doesn't necessarily mean we need to quantify what proportion of variance is due to random effect groups. We can do it, but it's usually tangential to the main analysis.

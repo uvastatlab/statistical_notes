@@ -1,0 +1,212 @@
+---
+title: "The rvif package"
+author: "Clay Ford"
+date: "2026-04-03"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Intro
+
+The rvif (Redefined Variance Inflation Factor) package focuses on determining whether or not the degree of approximate multicollinearity in a multiple linear regression model is of concern, _meaning that it affects the statistical analysis (i.e. individual significance tests) of the model_. It does so by implementing a statistical test via the `multicollinearity()` function. From the package vignette: "the test determines whether the non-rejection of the null hypothesis in the individual significance tests of the coefficient associated with each independent variable _is due to the degree of multicollinearity_."
+
+The intro to the R Journal article quotes the O'Brien paper: "However, the measures traditionally applied to detect multicollinearity may conclude that multicollinearity exists even if it does not lead to the negative effects mentioned above, when, in fact, the best solution in this case may be not to treat the multicollinearity (see O’Brien (2007)."
+
+## Preliminaries
+
+- High VIF leads to a high variance.
+- High VIF will lead to a low coefficient test statistic (t), provoking the tendency _not_ to reject the null hypothesis.
+- From O’Brien (2007), other factors such as the estimation of the random
+disturbance and the size of the sample can counterbalance the high value of the VIF to yield a low value for the experimental statistic.
+- it is possible to obtain VIF values greater than 10 that do not necessarily imply high estimated variance because of a large sample size or a low value for the estimated variance of the random disturbance.
+- VIF is defined as the ratio between the variance of the estimators in the model and the variance of the estimators of a hypothetical reference model where the independent variables are _orthogonal_.
+- RVIF (Redefined Variance Inflation Factor) is defined as the ratio between the variance of the estimators in the model and the variance of the estimators of a hypothetical reference model where the independent variables are _orthonormal_.
+- See [this Stack Exchange post](https://math.stackexchange.com/questions/1383725/what-is-the-difference-between-orthogonal-and-orthonormal-in-terms-of-vectors-an) for an explanation of the difference between orthogonal and orthonormal.
+- the RVIF can be calculated for the intercept of the linear regression model.
+- the RVIF is always greater than or equal to 1 and its minimum value is indicative of the absence of multicollinearity.
+- Salmerón et al. (2026) distinguish between essential and non-essential multicollinearity:
+    * essential: multicollinearity between independent variables _excluding_ the intercept
+    * non-essential: strong relationship between the intercept and at least one of the independent variables.
+
+## The four scenarios
+
+"To determine whether the tendency not to reject the null hypothesis in the individual significance test is caused by a troubling approximate multicollinearity that inflates the variance of the estimator, or whether it is caused by variables not being statistically significantly related, the following situations are distinguished with a significance level $\alpha$:"
+
+**a** If the null hypothesis is initially _rejected_ in the original model, the following results can be obtained for the orthonormal model:
+
+- **a.1.** the null hypothesis is rejected, the results are _consistent_.
+- **a.2.** the null hypothesis is not rejected, this could be an _inconsistency_.
+
+**b** If the null hypothesis is _not initially rejected_ in the original model, the following results may occur for the orthonormal model:
+
+- **b.1** the null hypothesis is rejected, it is possible to conclude that the degree of multicollinearity affects the statistical analysis of the model, provoking not rejecting the null hypothesis in the original model.
+- **b.2** the null hypothesis is also not rejected, the results are _consistent_.
+
+## The decision rule
+
+Screenshot from the rvif vignette:
+
+![](rvif.png)
+
+In words, if RVIF exceeds the maximum of $c_0(i)$ and $c_3(i)$, then multicollinearity is affecting the statistical analysis of the model. See the R Journal article for derivations of these expressions.
+
+## Examples
+
+```{r message=FALSE}
+library(rvif)
+library(faraway)
+```
+
+### Prostate data
+
+Using the prostate data from the faraway package, model lpsa (log prostate specific antigen) as a function of all other variables and investigate multicollinearity using `vif()` from the car package.
+
+```{r}
+data("prostate")
+m <- lm(lpsa ~ ., data = prostate)
+vif(m)
+```
+
+Now investigate multicollinearity using the `rvifs()` function from the rvif package. Notice we need to use `model.matrix()` to extract the right-hand side variables from the model.  
+
+- RVIF = Redefined Variance Inflation Factor of each independent variable.
+- %	= Percentage of near multicollinearity due to each independent variable.
+
+Notice the intercept is included in the output. These RVIF values are much higher than VIF, but **there is no threshold to consider**.
+
+```{r}
+rvifs(x = model.matrix(m))
+```
+
+Use the Decision Rule to Detect Troubling Multicollinearity. The function returns the value of the RVIF and the established thresholds (c0 and c3), as well as indicating whether or not the individual significance analysis is affected by multicollinearity at the chosen significance level.
+
+```{r}
+multicollinearity(y = prostate[,"lpsa"], x = model.matrix(m))
+```
+
+The individual significance test of the intercept is affected by the degree of existing multicollinearity. The Scenario of b.1 says that the intercept was _not_ rejected in the original model but is rejected in the orthonormal reference model.
+
+```{r}
+coef(summary(m))["(Intercept)",]
+```
+
+### Savings rates data
+
+Model savings rate (sr) as a function of pop15 (percent population under age of 15), pop75, (percent population over age of 75), dpi (per-capita disposable income in dollars), and ddpi (percent growth rate of dpi). View VIF.
+
+```{r}
+data("savings")
+m2 <- lm(sr ~ pop15 + pop75 + dpi + ddpi, data = savings)
+vif(m2)
+```
+
+Now look at RVIFs.
+
+```{r}
+rvifs(x = model.matrix(m2))
+```
+
+Use the Decision Rule to Detect Troubling Multicollinearity. 
+
+```{r}
+multicollinearity(y = savings[,"sr"], x = model.matrix(m2))
+```
+
+According to the results, the level of multicollinearity detected does not affect the statistical analysis.
+
+### Simulated data
+
+Simulate highly correlated data, generate an outcome (Y), and then fit the correct model.
+
+```{r}
+library(MASS)
+set.seed(1)
+n <- 300
+r <- 0.99
+d <- as.data.frame(mvrnorm(n = n, mu = c(0,0,0), 
+                           Sigma = matrix(c(1,r,r, 
+                                            r,1,r,
+                                            r,r,1), 
+                                          byrow = T, 
+                                          nrow = 3)))
+d$Y <- 0.2 + 0.5*d$V1 + -0.5*d$V2 + 0.9*d$V3 +
+  rnorm(n = n, sd = 1.1)
+m3 <- lm(Y ~ V1 + V2 + V3, data = d)
+vif(m3)
+```
+
+Now look at RVIFs:
+
+```{r}
+rvifs(x = model.matrix(m3))
+```
+
+Use the Decision Rule to Detect Troubling Multicollinearity. 
+
+```{r}
+multicollinearity(y = d[,"Y"], x = model.matrix(m3))
+```
+
+The degree of multicollinearity in the model affects the individual significance of variable 1 (V1). The "Contradiction" result for the intercept is due to scenario "a.2" where the intercept test statistic was rejected in the original model but not in the reference orthonormal model. 
+
+View the confidence intervals on the coefficients. Notice the interval of V1 [-1.05508392, 0.9169819] contains 0 and is not significant. The "true" value of the coefficient is 0.5. The test on V1 is not significant in the model, but is significant in the reference orthonormal model. 
+
+```{r}
+confint(m3)
+```
+
+Set a new seed, double the sample size and check results.
+
+```{r}
+set.seed(11)
+n <- 600
+r <- 0.99
+d <- as.data.frame(mvrnorm(n = n, mu = c(0,0,0), 
+                           Sigma = matrix(c(1,r,r, 
+                                            r,1,r,
+                                            r,r,1), 
+                                          byrow = T, 
+                                          nrow = 3)))
+d$Y <- 0.2 + 0.5*d$V1 + -0.5*d$V2 + 0.9*d$V3 +
+  rnorm(n = n, sd = 1.1)
+m3 <- lm(Y ~ V1 + V2 + V3, data = d)
+multicollinearity(y = d[,"Y"], x = model.matrix(m3))
+```
+
+Collinearity again is affecting V1. Check the confidence intervals. The interval for V1 is wide and includes 0. The "true" value of the coefficient is 0.5. The test on V1 is not significant in the model, but is significant in the reference orthonormal model. 
+
+```{r}
+confint(m3)
+```
+
+
+## Limitations/Questions
+
+- Not sure how `multicollinearity()` handles interactions and non-linear terms. Neither the R journal article or rvif vignettes addresses these topics.
+- The rvif package is "not designed to distinguish between quantitative and binary independent variables, so users should be especially careful when interpreting results involving binary variables"
+- It's not clear to me how or if non-essential collinearity (i.e., collinearity between the intercept and at least one of the independent variables) affects the analysis. 
+- It's not clear to me how or if one should address a result of "Contradiction" when running `multicollinearity()`.
+- Unclear if this is valid for mixed-effect/multilevel models. The following example runs and produces output, but not sure if it's meaningful:
+
+```
+library(lme4)
+fm1 <- lmer(Reaction ~ Days + (Days | Subject), sleepstudy)
+multicollinearity(y = sleepstudy[,"Reaction"], x = model.matrix(fm1))
+```
+
+## See also
+
+- The help page for `multicollinearity()` provides 10 additional examples.
+- The `cv_vif()` function provides the values for the Variance Inflation Factor (VIF) and the Coefficient of Variation (CV) for the independent variables (excluding the intercept) in a multiple linear regression model. From the help page: "It is interesting to note the distinction between essential and non-essential multicollinearity. Essential multicollinearity happens when there is an approximate linear relationship between two or more independent variables (not including the intercept) while non-essential multicollinearity involves a linear relationship between the intercept and at least one independent variable. This distinction matters because the Variance Inflation Factor (VIF) only detects essential multicollinearity, while the Condition Value (CV) is useful for detecting only non-essential multicollinearity. Understanding the distinction between essential and non-essential multicollinearity and the limitations of each detection measure, can be very useful for identifying whether there is a troubling degree of multicollinearity, and determining the kind of multicollinearity present and the variables causing it."
+- The `plot()` method for class "cv_vif" produces a scatterplot of Coefficient of Variation (CV) versus the Variance Inflation Factor (VIF) for the independent variables (excluding the intercept) of a multiple linear regression model. "The distinction between essential and non-essential multicollinearity and the limitations of each measure (CV and VIF) for detecting the different kinds of multicollinearity, can be very useful for identifying whether there is a troubling degree of multicollinearity, and determining the kind of multicollinearity present and the variables causing it."
+- The performance package provides the `check_collinearity()` function that works from lm and mixed-effect models. See [this blog post](https://easystats.github.io/blog/posts/performance_check_collinearity/).
+
+## References
+
+- O’Brien, R.M. A Caution Regarding Rules of Thumb for Variance Inflation Factors. Qual Quant 41, 673–690 (2007). <https://doi.org/10.1007/s11135-006-9018-6>
+- R Core Team (2026). _R: A Language and Environment for Statistical Computing_. R Foundation for Statistical Computing, Vienna, Austria.  <https://www.R-project.org/>.
+- Salmerón-Gómez & García-García, "rvif: a Decision Rule to Detect Troubling Statistical Multicollinearity Based on Redefined VIF", _The R Journal_, 2026. <https://journal.r-project.org/articles/RJ-2025-040/>
+- Salmerón R, García C (2025). _rvif: Collinearity Detection using Redefined Variance Inflation Factor and Graphical Methods_. doi:10.32614/CRAN.package.rvif <https://doi.org/10.32614/CRAN.package.rvif>, R package version 3.2, <https://CRAN.R-project.org/package=rvif>.

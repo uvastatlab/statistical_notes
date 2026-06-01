@@ -1,0 +1,72 @@
+---
+title: "multinomial logistic regression example"
+author: "Clay Ford"
+date: "2026-04-02"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## load data
+
+Use data from the carData package. Canadian Women's Labour-Force Participation. The Womenlf data frame has 263 rows and 4 columns. The data are from a 1977 survey of the Canadian population.
+
+```{r message=FALSE}
+library(carData)
+data("Womenlf")
+
+# Labour-Force Participation
+summary(Womenlf$partic)
+```
+
+## model
+
+Model partic as a function of hincome (husband's income) and children (presence of children in household).
+
+```{r message=FALSE}
+library(nnet)
+m <- multinom(partic ~ hincome + children, data = Womenlf, 
+              Hess = TRUE)
+```
+
+Notice the fitted values are probabilities that sum to 1. The first subject would be classified as "not.work" since that category has the highest probability.
+
+```{r}
+head(fitted(m))
+```
+
+## using a matrix on lhs
+
+Assume that instead of selecting a category, the subjects had allocated percentages to the categories, similar to what Jim describes. Create a left hand side matrix.
+
+```{r}
+Y <- round(fitted(m) * 100)
+head(Y)
+```
+
+Now model the matrix as a function of hincome and children.
+
+```{r}
+m2 <- multinom(Y ~ hincome + children, 
+               data = Womenlf,
+               Hess = TRUE)
+```
+
+The fitted values are still probabilities that sum to 1.
+
+```{r}
+head(fitted(m2))
+```
+
+
+## visualize model
+
+Probability of "preferring" fulltime decreases as husband's income increases. Likewise, probability of "preferring" not.work increases as husband's income increases
+
+```{r message=FALSE}
+library(ggeffects)
+plot(ggpredict(m2, terms = "hincome"))
+```
+

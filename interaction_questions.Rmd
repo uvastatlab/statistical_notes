@@ -1,0 +1,290 @@
+---
+title: "Questions about model interactions"
+author: "Clay Ford"
+date: "2026-02-03"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## question 1
+
+Client says: "With cell culture assays, we are trying to experimentally break down these interactions in controlled environments. In this example (see plot below), what we really want to test is: **Did the stim change the pg/mL compared to control, and did the drug change the response to the stim**. We give the drug alone to experimentally tease apart that interaction. In this example, I would say that the drug by itself did not affect control cells, but it inhibited the response to the stim." (emphasis mine)
+
+For example: 
+
+![](Figure1.png){width=50%}
+
+StatLab associate says: My initial thoughts are, for question 1 (Did the stim change the pg/mL compared to control, and did the drug change the response to the stim) to run a two-way ANOVA with an interaction to see the main effects of the drug and stim and if the stim changes the effect of the drug. In clients's example, **he would likely see that "Drug" is not significant, "Stim" is significant, and "Drug + Stim" is not significant.** (emphasis mine)
+
+### simulate data
+
+We can simulate data based on the figure to help us think about this.
+
+```{r}
+drug <- factor(c(0, 0, 0, 
+          1, 1, 1, 
+          0, 0, 0, 
+          1, 1, 1))
+stim <- factor(c(0, 0, 0, 
+          0, 0, 0,
+          1, 1, 1,
+          1, 1, 1))
+set.seed(10)
+pgmL <- rnorm(n = 12, mean = 10 + 0.2*(drug == "1") + 
+                50*(stim == "1") - 
+                40*(drug == "1")*(stim == "1"), sd = 2)
+d <- data.frame(pgmL, drug, stim)
+
+# calculate means
+d2 <- aggregate(pgmL ~ drug + stim, data = d, FUN = mean)
+```
+
+### visualize and analyze
+
+Recreate plot without error bars, which appear to be SD bars not SE.
+
+```{r}
+library(ggplot2)
+ggplot() +
+  aes(x = interaction(drug, stim), y = pgmL) +
+  geom_col(data = d2, alpha = 1/5, color = "black") +
+  geom_point(data = d, position = position_jitter(width = 0.3, height = 0)) +
+  scale_x_discrete(labels = c("ctrl", "drug", "stim", "drug+stim"))
+```
+
+In this case I think an interaction plot would be more suitable. When drug = 1, the effect of stim is greatly reduced. 
+
+```{r}
+interaction.plot(x.factor = d$stim, trace.factor = d$drug, response = d$pgmL)
+```
+
+We can run a 2-way ANOVA as follows. 
+
+```{r}
+m <- lm(pgmL ~ drug * stim, data = d)  
+```
+
+If we look at the model coefficients, it does seem the effect of drug is not significant relative to the control. However, this assumes stim = 0. The interaction is large and significant, so it may be the drug has an effect when stim = 1. That's what we saw in the interaction plot. Likewise, the significant stim coefficient suggests that stim does change pg/mL relative to control (when drug = 0).  
+
+```{r}
+summary(m)
+```
+
+
+If we look at the ANOVA table for this analysis, we see _both_ main effects and the interaction are significant. This may seem contradictory to the model summary output. However, it simply shows that both variables and their interaction explain the variability in the outcome.
+
+```{r}
+anova(m)
+```
+
+We can do posthoc comparisons to see if the drug changes the response to the stim. This means looking at the mean response of stim _conditional on drug_. We see below that the effect of stim changes dramatically depending on drug. The effect of stim drops from 48.9 to 11.
+
+```{r message=FALSE}
+library(emmeans)
+emmeans(m, specs = ~ stim | drug) |> 
+  pairs(reverse = TRUE)
+```
+
+We can also look at the _difference of those differences_ as follows. This shows the difference is about -37.9 with a 95% CI of [-41.4,-34.4].
+
+```{r}
+emmeans(m, specs = ~ stim | drug) |> 
+  pairs(reverse = TRUE) |> 
+  pairs(simple = "drug", reverse = TRUE) |> 
+  confint()
+```
+
+We can visualize this model with an effect plot. This shows standard error bars. We can clearly see the effect of stim greatly reduced when drug = 1.
+
+```{r message=FALSE}
+library(ggeffects)
+ggpredict(m, terms = c("stim", "drug")) |> plot()
+```
+
+## question 2
+
+Client says: "This example is the same as the previous one, but we’ve just added a second drug. Again, the drug B alone is more of an experimental control, but here we do see that it reduces the signal compared to the control. Meanwhile, Drug B doesn’t impact whatever the stim is doing. Also an important note, **we would NOT be looking at what does Drug A and Drug B do together, or what Drug A and Drug B do to Stim**." (emphasis mine) 
+
+![](Figure2.png){width=50%}
+
+StatLab associate says: For question 2, Client doesn't have values for all interactions (2x2x2) and is not interested in what Drug A and Drug B do together, or what Drug A and Drug B do to Stim. It seems to me that these could be treated as different treatments, and a one-way ANOVA could be used? He would need to do post-hoc testing to look at differences between treatments. Could he also fit a model where:
+
+`Y ~ Drug A + Drug B + Stim + Drug A:Stim + Drug B:stim `
+
+Would this better model the interactions instead of thinking of them as "treatment groups"? 
+
+### simulate data
+
+We can simulate data based on the figure to help us think about this.
+
+```{r}
+drugA <- factor(
+  c(0, 0, 0, 
+    1, 1, 1, 
+    0, 0, 0, 
+    0, 0, 0,
+    1, 1, 1,
+    0, 0, 0))
+drugB <- factor(
+  c(0, 0, 0,
+    0, 0, 0,
+    1, 1, 1, 
+    0, 0, 0, 
+    0, 0, 0,
+    1, 1, 1))
+stim <- factor(
+  c(0, 0, 0,
+    0, 0, 0,
+    0, 0, 0,
+    1, 1, 1,
+    1, 1, 1, 
+    1, 1, 1))
+set.seed(2)
+pgmL <- rnorm(n = 18, mean = 10 + 
+                0.2*(drugA == "1") + 
+                -4*(drugB == "1") +
+                50*(stim == "1") - 
+                40*(drugA == "1")*(stim == "1") -
+                0.8*(drugB == "1")*(stim == "1"), sd = 2)
+d <- data.frame(pgmL, drugA, drugB, stim)
+
+# calculate means
+d2 <- aggregate(pgmL ~ drugA + drugB + stim, data = d, FUN = mean)
+```
+
+### visualize and analyze
+
+Recreate plot without error bars, which appear to be SD bars not SE.
+
+```{r}
+library(ggplot2)
+ggplot() +
+  aes(x = interaction(drugA, drugB, stim), y = pgmL) +
+  geom_col(data = d2, alpha = 1/5, color = "black") +
+  geom_point(data = d, position = position_jitter(width = 0.3, height = 0)) +
+  scale_x_discrete(labels = c("ctrl", "drugA", "drugB", "stim", 
+                              "drugA+stim", "drugB+stim"))
+```
+
+Since he doesn't want all two way interactions, we can also visualize this using two separate interaction plots. In the first plot, it's easy to see how the effect of drug A reduces the effect of stim.
+
+```{r}
+interaction.plot(x.factor = d$stim, trace.factor = d$drugA, response = d$pgmL, 
+                 main = "Drug A and Stim interaction")
+```
+
+In this plot, there appears to be a mild interaction, but this may be due to sampling variability. 
+
+```{r}
+interaction.plot(x.factor = d$stim, trace.factor = d$drugB, response = d$pgmL, 
+                 main = "Drug B and Stim interaction")
+```
+
+I think the StatLab associate's proposed model is the cleanest way to analyze this question: 
+
+`Y ~ Drug A + Drug B + Stim + Drug A:Stim + Drug B:stim`  
+
+```{r}
+m2 <- lm(pgmL ~ drugA + drugB + stim + drugA:stim + drugB:stim, data = d)
+```
+
+The model summary tells us the drug B and stim interaction is small and uncertain.
+
+```{r}
+summary(m2)
+```
+
+
+The same basic result can be seen in the ANOVA table.
+
+```{r}
+anova(m2)
+```
+
+Since he's interested in what Drug A and Drug B do to Stim, we can use this model for some post-hoc comparisons using emmeans. We should do it separately for drug A and drug B. First let's look at the effect of stim conditional on drug A. We see the effect of stim is reduced quite a bit when drug A is administered.
+
+```{r}
+# Hold drug B at 0 since drug B is not used with drug A
+emmeans(m2, specs = ~ stim | drugA, at = list(drugB = "0")) |> 
+  pairs(reverse = TRUE)
+```
+
+Take the difference in those differences. This reduction is estimated to be in the range of [-45.3, -33.3] with 95% confidence.
+
+```{r}
+emmeans(m2, specs = ~ stim | drugA, at = list(drugB = "0")) |> 
+  pairs(reverse = TRUE) |> 
+  pairs(simple = "drugA", reverse = TRUE) |> 
+  confint()
+```
+
+We can carry out the same analysis for drug B. The effect of stim is about the same regardless of whether drug B is administered. There appears to be a slight reduction, but is it reliably in one direction?
+
+```{r}
+# Hold drug A at 0 since drug A is not used with drug B
+emmeans(m2, specs = ~ stim | drugB, at = list(drugA = "0")) |> 
+  pairs(reverse = TRUE)
+```
+
+The slight reduction of -3.62 is uncertain with a 95% CI of [-9.61, 2.36]. We're not sure what kind of effect drug B has on stim, if any. 
+
+```{r}
+emmeans(m2, specs = ~ stim | drugB, at = list(drugA = "0")) |> 
+  pairs(reverse = TRUE) |> 
+  pairs(simple = "drugB", reverse = TRUE) |> 
+  confint()
+```
+
+As before, we can visualize these results with effect plots. We see the effect of stim is greatly reduced when drug A is administered.
+
+```{r message=FALSE}
+ggpredict(m2, terms = c("stim", "drugA"), condition = c(drugB = "0")) |> 
+  plot()
+```
+
+On the other hand, the effect of stim hardly changes in the presence of drug B.
+
+```{r message=FALSE}
+ggpredict(m2, terms = c("stim", "drugB"), condition = c(drugA = "0")) |> 
+  plot()
+```
+
+### one-way ANOVA
+
+Let's try this as a one-way ANOVA. If we fit a model without the intercept we simply get group means.
+
+```{r}
+d$grp <- interaction(d$drugA, d$drugB, d$stim, drop = TRUE)
+levels(d$grp) <- c("ctrl", "drugA", "drugB", "stim", "drugA+stim", "drugB+stim")
+m3 <- lm(pgmL ~ -1 + grp, data = d)
+summary(m3)
+```
+
+The ANOVA table is much less informative.
+
+```{r}
+anova(m3)
+```
+
+We can get comparisons using emmeans but it's a bit tricky.
+
+The first comparison (c1) is grpstim - grpctrl (ie, effect of stim when drug A = 0) and the second comparison (c2) is grpdrugA+stim - grpdrugA (ie, effect of stim when drug A = 1)
+
+```{r}
+emmeans(m3, specs = ~ grp) |> contrast(list(c1 = c(-1, 0, 0, 1, 0, 0),
+                                            c2 = c(0, -1, 0, 0, 1, 0)))
+```
+
+Taking the difference of those differences gives us the same result as before: 95% CI of [-45.3, -33.3]
+
+```{r}
+emmeans(m3, specs = ~ grp) |> contrast(list(c1 = c(-1, 0, 0, 1, 0, 0),
+                                            c2 = c(0, -1, 0, 0, 1, 0))) |> 
+  pairs(reverse = TRUE) |> 
+  confint()
+```
+
+I think the model with interactions is easier to work with.

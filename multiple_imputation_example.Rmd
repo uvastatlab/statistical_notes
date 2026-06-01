@@ -1,0 +1,170 @@
+---
+title: "Example of Multiple Imputation"
+author: "Clay Ford"
+date: "2026-05-14"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r message=FALSE}
+library(tidyverse)
+library(mice)
+library(miceadds)
+library(lme4)
+library(mitml)
+```
+
+Read in and prepare data.
+
+```{r}
+cor <-read.csv("chamber_corr.csv")
+bc_sum <- read.csv("bc_sum.csv")
+bc_sum$id_dot <- as.character(bc_sum$id_dot)
+bc_sum$id_dot <- if_else(bc_sum$id_dot == "22", "022", bc_sum$id_dot)
+bc_sum$dep<- as.character(bc_sum$dep)
+
+cor_clean <- cor %>%
+  filter(id_dot != 78) %>%
+  mutate(
+    id_dot = as.character(id_dot),
+    id_dot = if_else(id_dot == "22", "022", id_dot),
+    dep = as.character(dep),
+    total_light_hours = as.numeric(total_light_hours)) %>%
+  left_join(
+    bc_sum %>%
+      dplyr::select(dep, id_dot, bc_avg, pheo_avg),
+    by = c("dep", "id_dot")) %>%
+  rename(
+    bc = bc_avg,
+    pheo = pheo_avg) %>% 
+  dplyr::select(dep, month, year, campaign, id_dot, r, gpp, nem, 
+                total_light_hours, mean_temp, mean_day_par, sg_dens, bc)
+```
+
+## Investigate missingness
+
+The `md.pattern()` function in the mice package displays missing-data patterns.
+
+```{r}
+md.pattern(cor_clean, rotate.names = TRUE)
+```
+
+Above we see that mean_day_par has 3 missing values, sg_dens has 58 missing values, and bc as 81 missing values. The top row of the plot (all blue squares) says we have 71 complete cases. The next row says we have 50 cases with just bc missing. The next rows says we have 24 cases with just sg_dens missing. The last row shows 3 cases missing with mean_day_par and sg_dens missing.
+
+Since mean_day_par has only 3 cases missing we could just impute the mean.
+
+```{r}
+cor_clean$mean_day_par[is.na(cor_clean$mean_day_par)] <- mean(cor_clean$mean_day_par, na.rm = TRUE)
+```
+
+This simplifies the missing data pattern.
+
+```{r}
+md.pattern(cor_clean, rotate.names = TRUE)
+```
+
+## Multiple imputation
+
+The mice package in R makes it relatively easy to implement multiple imputation. The author of the package also [wrote a book that is free online](https://stefvanbuuren.name/fimd/).
+
+Let's say we want to fit the following model. Notice in the output that it is fit to only 71 observations.
+
+```{r}
+m <- lmer(gpp ~ mean_temp + mean_day_par + bc + sg_dens + (1 | dep),
+           data = cor_clean)
+summary(m, corr = FALSE)
+```
+
+To begin multiple imputation we need to declare which variables to use to impute our missing variables. The `make.predictorMatrix()` function creates a predictor matrix for us. Each variable in the data has a row and a column in the predictor matrix. A value of 1 indicates that the column variable is used to impute the row variable. 
+
+```{r}
+d <- cor_clean[,c("gpp", "mean_temp", "mean_day_par", "bc", "sg_dens", "dep")]
+d$dep <- as.integer(d$dep)
+pred <- make.predictorMatrix(d)
+pred
+```
+
+Since bc and sg_dens are the only missing variables, we only need to impute them. The other rows can be set to all 0s. An entry of -2 indicates the random effect grouping variable. 
+
+```{r}
+pred["gpp",]          <- c(0, 0, 0, 0, 0, 0)
+pred["mean_temp",]    <- c(0, 0, 0, 0, 0, 0)
+pred["mean_day_par",] <- c(0, 0, 0, 0, 0, 0)
+pred["bc",]           <- c(1, 1, 1, 0, 1, -2)
+pred["sg_dens",]      <- c(1, 1, 1, 1, 0, -2)
+pred["dep",]          <- c(0, 0, 0, 0, 0, 0)
+pred
+```
+
+Now we specify which method we want to use to impute the missing variables. The default is pmm, or predictive mean matching.
+
+```{r}
+meth <- make.method(d)
+meth
+```
+
+Since we have multilevel data nested within dep, we need to specify new methods. We use "2l.pmm" for bc since it varies within dep. We use "2lonly.pmm" for sg_dens since it is constant within dep.
+
+```{r}
+# need the miceadds package for the 2lonly.pmm method
+meth[c("bc", "sg_dens")] <- c("2l.pmm", "2lonly.pmm")
+meth
+```
+
+Finally we run the imputation using the `mice()` function. Below I ran 10 imputations by setting `m = 10`.
+
+```{r}
+imp <- mice(d, pred = pred, meth = meth, seed = 999,
+            m = 10, print = FALSE)
+```
+
+Calling `plot()` on the imputation object produces a diagnostic trace plots. In general, we want the streams to intermingle and be free of any trends at the later iterations. These plots look good.
+
+```{r}
+plot(imp)
+```
+
+Now let's check the imputations. Imputation 1 is the complete data. 2 - 11 are the imputed data sets. Red dots are the imputed values. This looks good. We didn't impute anything outside the range of data (though maybe it's implausible that imputations should take one of the pre-existing 8 unique levels?)
+
+```{r}
+stripplot(imp, sg_dens ~ .imp, pch=20, cex=2)
+```
+
+Check the imputations of bc with density plots. The blue line is the original data. 
+
+```{r}
+densityplot(imp, ~ bc)
+```
+
+Now fit our model to all ten imputed data sets and pool the results. 
+
+```{r}
+fit <- with(imp, lmer(gpp ~ mean_temp + mean_day_par + bc + sg_dens + (1 | dep), 
+                      REML = FALSE))
+summary(pool(fit))
+```
+
+Let's round the values to make them easier to read.
+
+```{r}
+sout <- summary(pool(fit))
+apply(sout[,-1], 2, round, 3)
+```
+
+Get the estimates of variance.
+
+```{r}
+# this function from the mitml package
+testEstimates(as.mitml.result(fit),extra.pars = TRUE)$extra.pars
+```
+
+Compare to model fit to incomplete data.
+
+```{r}
+summary(m, corr = FALSE)
+```
+
+Honestly, not much difference. 

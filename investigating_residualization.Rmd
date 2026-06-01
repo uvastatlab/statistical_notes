@@ -1,0 +1,155 @@
+---
+title: "Investigating Residualization"
+author: "Clay Ford"
+date: "2026-04-10"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Intro
+
+Student is studying variation in forest canopy depth across the eastern United States. She is examining how canopy depth changes with latitude and to identify "key drivers" at both the among-site and within-site scales. The study includes 11 forest sites spanning a broad range of latitudes and five potential predictors.
+
+In the document sent before the meeting, the following statement is made (emphasis mine):
+
+> To further address collinearity and enable causal interpretation, we separated shared and independent effects prior to structural modelling. Forest age and canopy height were each regressed against solar angle, and then **their residuals—representing variation independent of latitude—were used in a structural equation model (SEM)** to quantify direct and indirect pathways on canopy depth. 
+
+This method was unfamiliar to me so I did some investigating.
+
+## The Frisch-Waugh-Lovell Theorem
+
+This idea of using residuals as predictors apparently comes from the Frisch-Waugh-Lovell Theorem. This [page](https://bookdown.org/ts_robinson1994/10EconometricTheorems/frisch.html#coded-example) provides an accessible overview along with a demo in R. The main attraction is that it can create orthogonal predictors with no correlation. But the new predictors (the residuals) are estimates themselves, so additional error may propagate through the model. This is also known as the _Partialling-out Procedure_. (See graphic at the top of [this page](https://carlos-mendez.org/post/python_fwl/).)
+
+## The SEM model
+
+Here is the SEM model the student fit. 
+
+![](sem.png)
+
+In words, "age affects height, which affects depth. Solar angle also affects depth." In this model she is using _residuals_ for the age and height predictors. In other words, she fit the following models and extracted the residuals. Something like this, I think:
+
+```
+age_resid <- lm(age ~ solar_angle)$residuals
+height_resid <- lm(height ~ solar_angle)$residuals
+
+```
+
+In the SEM, `age_resid` and `height_resid` are being used as the predictors. Presumably this is desirable because the raw age and height values are highly correlated with solar angle. The derived residual values are orthogonal to solar angle. However, since solar angle is _also in the model_, the estimated coefficients should be the _same_. So the step of deriving the residuals and using them in the model should be _redundant_. 
+
+## Demonstration
+
+Simulate correlated data according to the SEM path model above. The "true" coefficients are as follows:
+
+- Age --> Height: 0.6
+- Height --> Depth: 0.5
+- Solar Angle --> Depth: -0.7
+
+```{r}
+set.seed(4102026)
+n <- 100
+solar_angle <- rnorm(n)  
+age <- 0.8*solar_angle + rnorm(n, sd = 0.2)  # induce correlation with solar_angle
+height <- 0.5*age + rnorm(n, sd = 0.2)
+depth <- -0.7*solar_angle + 0.5*height + rnorm(n, sd = 0.2)
+d <- data.frame(depth, solar_angle, height, age)
+```
+
+Height and age are highly correlated with solar angle:
+
+```{r}
+cor(d[,c("solar_angle", "height", "age")])
+```
+
+Since the predictors are highly correlated, derive their residuals by regressing each on solar angle.
+
+```{r}
+# residualization
+d$height_r <- lm(height ~ solar_angle, data = d)$residuals
+d$age_r <- lm(age ~ solar_angle, data = d)$residuals
+```
+
+Now their correlation with solar angle are basically 0 (though the residuals themselves are still somewhat correlated). This seems like a good thing!
+
+```{r}
+round(cor(d[,c("solar_angle", "height_r", "age_r")]), 4)
+```
+
+Now fit an SEM in attempt to recover true values used to generate data. 
+
+```{r message=FALSE,warning=FALSE}
+library(piecewiseSEM)
+fit1 <- psem(
+  lm(height_r ~ age_r, data = d),
+  lm(depth ~ solar_angle + height_r, data = d)
+  )
+sout1 <- summary(fit1, .progressBar = FALSE)
+sout1$coefficients
+```
+
+Notice the coefficient for height_r is **0.4370**. That's a fairly close estimate of the true effect (0.5).
+
+But notice what happens when we use the _raw values_ of height and age:
+
+```{r message=FALSE, warning=FALSE}
+fit2 <- psem(
+  lm(height ~ age, data = d),
+  lm(depth ~ solar_angle + height, data = d)
+  )
+sout2 <- summary(fit2, .progressBar = FALSE)
+sout2$coefficients
+
+```
+
+The height coefficient is identical (**0.4370**) to the model that used residuals. In addition, the coefficient for solar angle is closer to the true value of -0.7 (though I don't know if that will always be the case).
+
+Therefore it does seem redundant to use residualization in this case. 
+
+## Simple linear models
+
+In simple linear models, the coefficients for both height and age are equivalent.
+
+```{r}
+mod1 <- lm(depth ~ solar_angle + height + age, data = d)
+coef(mod1)[c("height", "age")]
+```
+
+```{r}
+mod2 <- lm(depth ~ solar_angle + height_r + age_r, data = d)
+coef(mod2)[c("height_r", "age_r")]
+```
+
+## Residualize outcome as well
+
+The [FWL theorem](https://bookdown.org/ts_robinson1994/10EconometricTheorems/frisch.html#coded-example) mentions the _outcome_ should be residualized as well. Let's try that.
+
+```{r}
+d$depth_r <- lm(depth ~ solar_angle, data = d)$residuals
+
+fit3 <- psem(
+  lm(height_r ~ age_r, data = d),
+  lm(depth_r ~ solar_angle + height_r, data = d)
+  )
+sout3 <- summary(fit3, .progressBar = FALSE)
+sout3$coefficients
+```
+
+The height coefficient remains the same (0.4370), however the solar angle coefficient is now estimated to be 0. That's not good.
+
+In this toy example, it seems we're better off working with the raw data despite the fact they're highly correlated.
+
+## Disclaimer
+
+This is not intended to dismiss residualization (i.e., The partialling-out procedure) as a method. I just think for this particular SEM model it may not be needed.
+
+## References
+
+- [Discussion with Claude AI](https://claude.ai/share/e445755a-1b27-4b08-9188-f53e797af772)
+- [The FWL Theorem: Making Multivariate Regressions Intuitive](https://carlos-mendez.org/post/python_fwl/)
+- [Fundamental Theorems for Econometrics](https://bookdown.org/ts_robinson1994/10EconometricTheorems/frisch.html#coded-example)
+- Lefcheck JS (2016). “piecewiseSEM: Piecewise structural equation modeling in R for ecology, evolution, and systematics.” _Methods in Ecology and Evolution_,*7*(5), 573-579. doi:10.1111/2041-210X.12512 <https://doi.org/10.1111/2041-210X.12512>
+- [An Introduction to Structural Equation Modeling in R](https://jslefche.github.io/sem_book/)
+
