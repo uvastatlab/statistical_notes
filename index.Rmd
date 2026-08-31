@@ -9,9 +9,12 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ###  Reports generated for various consultations for the UVA StatLab.
 
-Unless otherwise noted, reports are by Clay Ford. 
+Unless otherwise noted, reports are by Clay Ford. All reports are 100% human generated. No AI was used. 
 
 ### 2026
+
+- [Sample size estimates for non-linear modeling](sample_size_estimates.html) (2026-08-27)     
+Shows how to estimate sample sizes based on F-tests for non-linear models with two and three coefficients. 
 
 - [Example of multiple imputation for multilevel data](multiple_imputation_example.html) (2026-05-14)   
 Demonstrates how to implement multiple imputation for multilevel data using the {mice} package with one level 1 variable (varies within group) and one level 2 variable (constant within group).

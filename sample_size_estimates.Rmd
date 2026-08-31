@@ -1,0 +1,123 @@
+---
+title: "Sample size estimates"
+author: "Clay Ford"
+date: "2026-08-27"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, comment = "")
+```
+
+
+## Study design
+
+Radiologist will assess imaging and provide a score. Of interest is the relationship between the score and volume. Suspected relationship is nonlinear.
+
+An F-test tests the null hypothesis of all coefficients (minus the intercept) being 0 in a model. Rejecting the null provides evidence that _at least one_ coefficient is different from 0. Rejecting the null hypothesis of the F-test implies the Multiple R-Squared is greater than 0. Multiple R-Squared ranges from 0 to 1. It can be interpreted as the proportion of variance in the outcome explained by the model. 
+
+## Example of an F-test
+
+Model car stopping distance as a function of speed. Fit a non-linear model.
+
+```{r}
+data(cars)
+plot(cars)
+```
+
+Fit a 2nd-degree polynomial model and plot the model.
+
+```{r}
+m <- lm(dist ~ poly(speed, degree = 2), data = cars)
+plot(cars)
+lines(cars$speed, fitted(m), col = "red")
+```
+
+Check the F-test in the summary output. It's the last line of the output.
+
+```{r}
+summary(m)
+```
+
+The p-value is practically 0. Reject the null that the two coefficients both equal 0. The multiple R-squared is about 0.67. The adjusted R-squared penalizes complexity and is slightly lower at 0.65. The F-test may not be the primary analysis, but it is the minimal hurdle to clear before using the model to summarize any associations. Notice also the degrees of freedom in the last line: 2 and 47. The 2 refers to the number of coefficients in the model, _minus_ the intercept. The 47 refers to the number of observations minus the number of coefficients in the model, _including_ the intercept. These values come into play in the next section.
+
+## Sample size estimation
+
+We can estimate sample size based on the F-test. For this we can use the pwr package in R. The function to use is `pwr.f2.test()`. The arguments are as follows:
+
+- power: desired power of the test. Minimum of 0.8. Higher power requires larger sample size.
+- f2: effect size. $R^2/(1 - R^2)$, where $R^2$ is R-squared.
+- sig.level: significance level of F-test. Usually 0.05, but can be set lower. Lower values require larger sample size.
+- u: number of coefficients in model, minus intercept.
+
+Suppose we hypothesize an R-squared of 0.1 and will fit a non-linear model with two coefficients (2nd degree polynomial, for example). We want to have 0.80 power to reject the null hypothesis that both coefficients equal 0 at a significance level of 0.05.
+
+```{r}
+library(pwr)
+pwr.f2.test(power = 0.8, f2 = 0.1/(1 - 0.1), sig.level = 0.05, u = 2)
+```
+
+Our sample size is u + v + 1. Always round up.
+
+```{r}
+2 + 87 + 1
+```
+
+We need about 90 subjects.
+
+## Sample size for a range of effects
+
+Let's calculate sample size for R-squared values ranging from 0.1 to 0.9 in steps of 0.05. Assume two predictors, power = 0.8, and significance level = 0.05
+
+```{r}
+r2 <- seq(from = 0.1, to = 0.9, by = 0.05)
+
+# define a function for rapidly calculating sample sizes for various r-squared
+# values.
+pwr.ftest <- function(u, r2, power=0.8, sig.level=0.05){
+  ceiling(sapply(r2, function(x)pwr.f2.test(power = power,
+                                            f2 = x/(1-x),  
+                                            sig.level = sig.level,
+                                            u = u)$v)) + u + 1
+  }
+
+# use function for two coefficients
+n <- pwr.ftest(u = 2, r2 = r2)
+data.frame(r2, n)
+```
+
+About 90 subjects should provide about 80% power to detect an R-squared of 0.1 at the 0.05 significance level. Around 22 subjects should be enough to detect an R-squared of 0.35.
+
+Assume **three** predictors, power = 0.8, and significance level = 0.05.
+
+```{r}
+n <- pwr.ftest(u = 3, r2 = r2)
+data.frame(r2, n)
+```
+
+Sample sizes begin to creep up assuming a more complex model with three predictors (a cubic polynomial model, for example). 
+
+Assume **three** predictors, **power = 0.9**, and significance level = 0.05.
+
+```{r}
+n <- pwr.ftest(u = 3, r2 = r2, power = 0.9)
+data.frame(r2, n)
+```
+
+Now we're looking at about 132 subjects to detect an R-squared of 0.1 and about 31 subjects to detect an R-squared of 0.35.
+
+The idea of this exercise is to help you _ballpark a sample size_. It is completely normal and acceptable to tweak the assumptions and see how sample sizes change. Settling on a sample size will depend on your hypothesized effect size.  This is often a clinically or biologically relevant effect you would regret missing. For example, if volume really explains 20% of the variability in the score, and you would hate to miss that, than you would want to sample at least 61 subjects to have 90% power to reject the null at the 0.05 level (based on the last batch of calculations).
+
+## R session details
+
+```{r echo = FALSE, results='asis'}
+summary(report::report(sessionInfo()))
+```
+
+
+## References
+
+- Champely S (2020). _pwr: Basic Functions for Power Analysis_.  doi:10.32614/CRAN.package.pwr <https://doi.org/10.32614/CRAN.package.pwr>. R package version 1.3-0, <https://CRAN.R-project.org/package=pwr>.
+- R Core Team (2026). _R: A Language and Environment for Statistical  Computing_. R Foundation for Statistical Computing, Vienna, Austria.  doi:10.32614/R.manuals <https://doi.org/10.32614/R.manuals>.  <https://www.R-project.org/>.
+
+
